@@ -6,24 +6,28 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 60000,
 });
 
 // --- 1. DATA INGESTION ---
-export const uploadCSV = async (file) => {
+export const uploadCSV = async (file, onProgress) => {
   const formData = new FormData();
   formData.append('file', file);
   const response = await api.post('/nodes/io/upload_csv', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 600000,
+    onUploadProgress: onProgress,
   });
   return response.data;
 };
 
-export const uploadExcel = async (file, sheetName = 'Sheet1') => {
+export const uploadExcel = async (file, sheetName = 'Sheet1', onProgress) => {
   const formData = new FormData();
   formData.append('file', file);
   const response = await api.post(`/nodes/io/upload_excel?sheet_name=${sheetName}`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 600000,
+    onUploadProgress: onProgress,
   });
   return response.data;
 };
@@ -32,7 +36,8 @@ export const getExcelSheets = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
   const response = await api.post('/nodes/io/excel_sheets', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
   });
   return response.data;
 };

@@ -333,73 +333,151 @@ export function GroupByAggsField({ label, required, value = {}, onChange, availa
   );
 }
 
-// Conditional column builder — safe params only, no raw expression strings
+// Conditional column builder — dynamic IF/THEN/ELSE with column-or-literal choice
 export function ConditionalBuilder({ value = {}, onChange, availableColumns = [] }) {
   const { col = '', op = 'gt', threshold = '', then_val = '', else_val = '', new_col = '' } = value;
+  // Track whether THEN/ELSE are column refs or literal values
+  const [thenMode, setThenMode] = React.useState(
+    availableColumns.includes(then_val) ? 'column' : 'literal'
+  );
+  const [elseMode, setElseMode] = React.useState(
+    availableColumns.includes(else_val) ? 'column' : 'literal'
+  );
 
   const OPS = [
-    { value: 'gt',  label: '> (greater than)' },
-    { value: 'gte', label: '>= (greater or equal)' },
-    { value: 'lt',  label: '< (less than)' },
-    { value: 'lte', label: '<= (less or equal)' },
-    { value: 'eq',  label: '= (equals)' },
-    { value: 'ne',  label: '≠ (not equals)' },
+    { value: 'gt',  label: '>' },
+    { value: 'gte', label: '>=' },
+    { value: 'lt',  label: '<' },
+    { value: 'lte', label: '<=' },
+    { value: 'eq',  label: '=' },
+    { value: 'ne',  label: '≠' },
   ];
 
   const OP_SYMBOLS = { gt: '>', gte: '>=', lt: '<', lte: '<=', eq: '==', ne: '!=' };
 
   const update = (patch) => {
-    const next = { col, op, threshold, then_val, else_val, new_col, ...patch };
-    // Pass structured params — backend builds the expression safely
-    onChange(next);
+    onChange({ col, op, threshold, then_val, else_val, new_col, ...patch });
   };
 
-  const inputCls = "w-full px-2 py-1.5 bg-slate-700/30 border border-slate-600 rounded text-white text-sm focus:border-cyan-500 focus:outline-none";
+  const inputCls = 'w-full px-2 py-1.5 bg-slate-700/30 border border-slate-600 rounded text-white text-sm focus:border-cyan-500 focus:outline-none';
+  const selectCls = inputCls;
+  const pillActive = 'bg-cyan-600 text-white border-cyan-500';
+  const pillInactive = 'bg-slate-700/30 text-slate-400 border-slate-600 hover:border-slate-500';
+
+  // Value input that can be column dropdown or text input
+  const ValueInput = ({ mode, setMode, val, onValChange, label }) => (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-xs text-slate-400 font-medium">{label}</label>
+        {availableColumns.length > 0 && (
+          <div className="flex rounded overflow-hidden border border-slate-600">
+            <button type="button"
+              onClick={() => { setMode('literal'); onValChange(''); }}
+              className={`px-2 py-0.5 text-[10px] font-medium border-r border-slate-600 transition-colors ${mode === 'literal' ? pillActive : pillInactive}`}
+            >Value</button>
+            <button type="button"
+              onClick={() => { setMode('column'); onValChange(''); }}
+              className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${mode === 'column' ? pillActive : pillInactive}`}
+            >Column</button>
+          </div>
+        )}
+      </div>
+      {mode === 'column' && availableColumns.length > 0 ? (
+        <select value={val} onChange={e => onValChange(e.target.value)} className={selectCls}>
+          <option value="">Select column</option>
+          {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      ) : (
+        <input value={val} onChange={e => onValChange(e.target.value)}
+          placeholder={label === 'THEN' ? 'e.g. High or 100' : 'e.g. Low or 0'}
+          className={inputCls} />
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-3">
-      {/* IF row */}
-      <div>
-        <label className="block text-xs text-slate-400 mb-1">IF</label>
-        <div className="flex gap-2">
-          {availableColumns.length > 0 ? (
-            <select value={col} onChange={e => update({ col: e.target.value })} className={inputCls + " flex-1"}>
-              <option value="">Select column</option>
-              {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
+      {/* ── IF condition ── */}
+      <div className="p-3 bg-slate-800/50 border border-slate-700 rounded-lg space-y-2">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">IF</span>
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+          {/* Column */}
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Column</label>
+            {availableColumns.length > 0 ? (
+              <select value={col} onChange={e => update({ col: e.target.value })} className={selectCls}>
+                <option value="">Select column</option>
+                {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            ) : (
+              <input value={col} onChange={e => update({ col: e.target.value })} placeholder="column" className={inputCls} />
+            )}
+          </div>
+          {/* Operator */}
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Op</label>
+            <select value={op} onChange={e => update({ op: e.target.value })} className={selectCls + ' w-16 text-center'}>
+              {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-          ) : (
-            <input value={col} onChange={e => update({ col: e.target.value })} placeholder="column_name" className={inputCls + " flex-1"} />
-          )}
-          <select value={op} onChange={e => update({ op: e.target.value })} className={inputCls + " w-36"}>
-            {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <input value={threshold} onChange={e => update({ threshold: e.target.value })} placeholder="value"
-            className={inputCls + " flex-1"} />
+          </div>
+          {/* Threshold */}
+          <div>
+            <label className="block text-[10px] text-slate-500 mb-1">Value</label>
+            <input value={threshold} onChange={e => update({ threshold: e.target.value })}
+              placeholder="e.g. 90000" className={inputCls} />
+          </div>
         </div>
       </div>
-      {/* THEN / ELSE */}
+
+      {/* ── THEN / ELSE ── */}
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="block text-xs text-slate-400 mb-1">THEN (true value)</label>
-          <input value={then_val} onChange={e => update({ then_val: e.target.value })} placeholder="e.g. High"
-            className={inputCls} />
+        <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
+          <div className="flex items-center gap-1 mb-2">
+            <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">THEN</span>
+          </div>
+          <ValueInput mode={thenMode} setMode={setThenMode} val={then_val}
+            onValChange={v => update({ then_val: v })} label="THEN" />
         </div>
-        <div>
-          <label className="block text-xs text-slate-400 mb-1">ELSE (false value)</label>
-          <input value={else_val} onChange={e => update({ else_val: e.target.value })} placeholder="e.g. Low"
-            className={inputCls} />
+        <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
+          <div className="flex items-center gap-1 mb-2">
+            <span className="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded">ELSE</span>
+          </div>
+          <ValueInput mode={elseMode} setMode={setElseMode} val={else_val}
+            onValChange={v => update({ else_val: v })} label="ELSE" />
         </div>
       </div>
-      {/* New column name */}
+
+      {/* ── Output column name ── */}
       <div>
-        <label className="block text-xs text-slate-400 mb-1">New Column Name</label>
-        <input value={new_col} onChange={e => update({ new_col: e.target.value })} placeholder="category"
-          className={inputCls} />
+        <label className="block text-xs text-slate-400 mb-1 font-medium">Output Column Name</label>
+        <input value={new_col} onChange={e => update({ new_col: e.target.value })}
+          placeholder="e.g. performance_band" className={inputCls} />
       </div>
-      {/* Preview */}
-      {col && threshold !== '' && new_col && (
-        <div className="p-2 bg-slate-800 rounded text-xs font-mono text-slate-400">
-          IF {col} {OP_SYMBOLS[op]} {threshold} → <span className="text-emerald-400">"{then_val}"</span> ELSE <span className="text-red-400">"{else_val}"</span> → <span className="text-cyan-400">{new_col}</span>
+
+      {/* ── Live preview ── */}
+      {col && threshold !== '' && (
+        <div className="p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-xs font-mono leading-relaxed">
+          <span className="text-cyan-400">IF</span>{' '}
+          <span className="text-white">{col}</span>{' '}
+          <span className="text-yellow-400">{OP_SYMBOLS[op]}</span>{' '}
+          <span className="text-white">{threshold}</span>
+          <br />
+          <span className="text-emerald-400">  → THEN</span>{' '}
+          <span className="text-white">{then_val || '...'}</span>
+          {thenMode === 'column' && <span className="text-slate-500"> (col)</span>}
+          <br />
+          <span className="text-red-400">  → ELSE</span>{' '}
+          <span className="text-white">{else_val || '...'}</span>
+          {elseMode === 'column' && <span className="text-slate-500"> (col)</span>}
+          {new_col && (
+            <>
+              <br />
+              <span className="text-slate-500">  → into</span>{' '}
+              <span className="text-cyan-300">{new_col}</span>
+            </>
+          )}
         </div>
       )}
     </div>
