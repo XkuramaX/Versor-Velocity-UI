@@ -466,4 +466,154 @@ export const nodeConfigs = {
       }
     ]
   },
+
+  // ── UTILITY NODES ─────────────────────────────────────────────────────────
+  add_literal_column: {
+    fields: [
+      { key: 'column', label: 'New Column Name', type: 'text', required: true, placeholder: 'period_tag' },
+      { key: 'value', label: 'Constant Value', type: 'text', required: true, placeholder: '2023Q1' },
+      {
+        key: 'dtype', label: 'Data Type', type: 'select', default: 'string',
+        options: [
+          { value: 'string', label: 'String' },
+          { value: 'integer', label: 'Integer' },
+          { value: 'float', label: 'Float' },
+          { value: 'boolean', label: 'Boolean' },
+        ]
+      }
+    ]
+  },
+
+  range_bucket: {
+    fields: [
+      { key: 'column', label: 'Column to Bucket', type: 'column_dropdown', required: true },
+      {
+        key: 'bins', label: 'Bin Boundaries', type: 'text', required: true,
+        placeholder: '0, 30, 60, 90',
+        helpText: 'Comma-separated numbers. Creates N+1 ranges.'
+      },
+      {
+        key: 'labels', label: 'Range Labels', type: 'text', required: true,
+        placeholder: '0, 1-30, 31-60, 61-90, 90+',
+        helpText: 'Comma-separated labels. Must be one more than bins.'
+      },
+      { key: 'new_col', label: 'Output Column Name', type: 'text', required: true, placeholder: 'bucket', default: 'bucket' }
+    ]
+  },
+
+  date_offset: {
+    fields: [
+      { key: 'column', label: 'Date Column', type: 'column_dropdown', required: true },
+      { key: 'offset', label: 'Offset Amount', type: 'number', required: true, placeholder: '1', default: 1 },
+      {
+        key: 'unit', label: 'Unit', type: 'select', required: true, default: 'days',
+        options: [
+          { value: 'days', label: 'Days' },
+          { value: 'weeks', label: 'Weeks' },
+          { value: 'months', label: 'Months' },
+          { value: 'years', label: 'Years' },
+        ]
+      },
+      { key: 'new_col', label: 'Output Column Name', type: 'text', placeholder: 'date_shifted' }
+    ]
+  },
+
+  crosstab: {
+    fields: [
+      { key: 'index', label: 'Row Category', type: 'column_dropdown', required: true, helpText: 'Values become row labels' },
+      { key: 'columns', label: 'Column Category', type: 'column_dropdown', required: true, helpText: 'Values become column headers' },
+      {
+        key: 'values', label: 'Values Column (optional)', type: 'column_dropdown',
+        helpText: 'Leave empty for count. Select a column to aggregate its values.'
+      },
+      {
+        key: 'agg', label: 'Aggregation', type: 'select', default: 'count',
+        options: [
+          { value: 'count', label: 'Count' },
+          { value: 'sum', label: 'Sum' },
+          { value: 'mean', label: 'Mean' },
+        ]
+      }
+    ]
+  },
+
+  cumulative_product: {
+    fields: [
+      { key: 'column', label: 'Column', type: 'column_dropdown', required: true, helpText: 'Numeric column to compute running product' },
+      { key: 'new_col', label: 'Output Column Name', type: 'text', placeholder: 'chain_prob' }
+    ]
+  },
+
+  // ── ENHANCED REGRESSION ──────────────────────────────────────────────────
+  ols_regression: {
+    fields: [
+      { key: 'target', label: 'Target Column (Y)', type: 'column_dropdown', required: true, helpText: 'The dependent variable to predict' },
+      { key: 'features', label: 'Feature Columns (X)', type: 'column_picker', required: true, helpText: 'Independent variables. Output: coefficients, t-stats, p-values, R²' },
+    ]
+  },
+
+  // ── STATISTICAL TESTS ────────────────────────────────────────────────────
+  t_test: {
+    fields: [
+      { key: 'column_a', label: 'Column A', type: 'column_dropdown', required: true },
+      { key: 'column_b', label: 'Column B', type: 'column_dropdown', helpText: 'Required for two-sample and paired tests' },
+      {
+        key: 'test_type', label: 'Test Type', type: 'select', required: true, default: 'two_sample',
+        options: [
+          { value: 'one_sample', label: 'One-Sample (vs population mean)' },
+          { value: 'two_sample', label: 'Two-Sample (Welch\'s t-test)' },
+          { value: 'paired', label: 'Paired t-test' },
+        ]
+      },
+      { key: 'popmean', label: 'Population Mean (μ₀)', type: 'number', default: 0, helpText: 'Only for one-sample test' },
+    ]
+  },
+
+  f_test: {
+    fields: [
+      { key: 'column_a', label: 'Column A', type: 'column_dropdown', required: true },
+      { key: 'column_b', label: 'Column B', type: 'column_dropdown', required: true },
+    ]
+  },
+
+  chi_square_test: {
+    fields: [
+      { key: 'column_a', label: 'Category Column A', type: 'column_dropdown', required: true, helpText: 'Categorical column (e.g. department)' },
+      { key: 'column_b', label: 'Category Column B', type: 'column_dropdown', required: true, helpText: 'Categorical column (e.g. status)' },
+    ]
+  },
+
+  dw_test: {
+    fields: [
+      { key: 'residuals_col', label: 'Residuals Column', type: 'column_dropdown', required: true, helpText: 'Column containing regression residuals. Use after OLS regression.' },
+    ]
+  },
+
+  anova_test: {
+    fields: [
+      { key: 'value_col', label: 'Value Column', type: 'column_dropdown', required: true, helpText: 'Numeric column to compare across groups' },
+      { key: 'group_col', label: 'Group Column', type: 'column_dropdown', required: true, helpText: 'Categorical column defining groups' },
+    ]
+  },
+
+  // ── VISUALIZATION ───────────────────────────────────────────────────────
+  chart: {
+    fields: [
+      {
+        key: 'chart_type', label: 'Chart Type', type: 'select', required: true, default: 'bar',
+        options: [
+          { value: 'bar', label: 'Bar Chart' },
+          { value: 'line', label: 'Line Chart' },
+          { value: 'scatter', label: 'Scatter Plot' },
+          { value: 'histogram', label: 'Histogram' },
+          { value: 'heatmap', label: 'Heatmap (Correlation)' },
+          { value: 'pie', label: 'Pie Chart' },
+        ]
+      },
+      { key: 'x_col', label: 'X Axis Column', type: 'column_dropdown', helpText: 'Required for bar, line, scatter, histogram, pie' },
+      { key: 'y_col', label: 'Y Axis Column', type: 'column_dropdown', helpText: 'Required for bar, line, scatter, pie' },
+      { key: 'title', label: 'Chart Title', type: 'text', placeholder: 'My Chart' },
+      { key: 'bins', label: 'Histogram Bins', type: 'number', default: 20, helpText: 'Only for histogram' },
+    ]
+  },
 };

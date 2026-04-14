@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000,
+  timeout: 120000,
 });
 
 // --- 1. DATA INGESTION ---
@@ -307,6 +307,87 @@ export const transposeMatrix = async (parentId) => {
   return response.data;
 };
 
+// --- UTILITY NODES ---
+export const addLiteralColumn = async (parentId, column, value, dtype = 'string') => {
+  const response = await api.post(`/nodes/util/add_literal_column?parent_id=${parentId}`, { column, value, dtype });
+  return response.data;
+};
+
+export const rangeBucket = async (parentId, column, bins, labels, newCol = 'bucket') => {
+  const response = await api.post(`/nodes/util/range_bucket?parent_id=${parentId}`, { column, bins, labels, new_col: newCol });
+  return response.data;
+};
+
+export const dateOffset = async (parentId, column, offset, unit = 'days', newCol = null) => {
+  const body = { column, offset, unit };
+  if (newCol) body.new_col = newCol;
+  const response = await api.post(`/nodes/util/date_offset?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const crosstabNode = async (parentId, index, columns, values = null, agg = 'count') => {
+  const body = { index, columns, agg };
+  if (values) body.values = values;
+  const response = await api.post(`/nodes/util/crosstab?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const cumulativeProduct = async (parentId, column, newCol = null) => {
+  const body = { column };
+  if (newCol) body.new_col = newCol;
+  const response = await api.post(`/nodes/util/cumulative_product?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+// --- ENHANCED REGRESSION ---
+export const olsRegression = async (parentId, target, features) => {
+  const response = await api.post(`/nodes/ml/ols_regression?parent_id=${parentId}`, { target, features });
+  return response.data;
+};
+
+// --- STATISTICAL TESTS ---
+export const tTest = async (parentId, columnA, columnB = null, testType = 'two_sample', alternative = 'two-sided', popmean = 0) => {
+  const body = { column_a: columnA, test_type: testType, alternative, popmean };
+  if (columnB) body.column_b = columnB;
+  const response = await api.post(`/nodes/stats/t_test?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const fTest = async (parentId, columnA, columnB) => {
+  const response = await api.post(`/nodes/stats/f_test?parent_id=${parentId}`, { column_a: columnA, column_b: columnB });
+  return response.data;
+};
+
+export const chiSquareTest = async (parentId, columnA, columnB) => {
+  const response = await api.post(`/nodes/stats/chi_square?parent_id=${parentId}`, { column_a: columnA, column_b: columnB });
+  return response.data;
+};
+
+export const dwTest = async (parentId, residualsCol) => {
+  const response = await api.post(`/nodes/stats/dw_test?parent_id=${parentId}`, { residuals_col: residualsCol });
+  return response.data;
+};
+
+export const anovaTest = async (parentId, valueCol, groupCol) => {
+  const response = await api.post(`/nodes/stats/anova?parent_id=${parentId}`, { value_col: valueCol, group_col: groupCol });
+  return response.data;
+};
+
+// --- VISUALIZATION ---
+export const chartNode = async (parentId, chartType, xCol = null, yCol = null, colorCol = null, title = '', bins = 20, agg = 'sum') => {
+  const body = { chart_type: chartType, title, bins, agg };
+  if (xCol) body.x_col = xCol;
+  if (yCol) body.y_col = yCol;
+  if (colorCol) body.color_col = colorCol;
+  const response = await api.post(`/nodes/viz/chart?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const getChartImage = async (nodeId) => {
+  const response = await api.get(`/nodes/${nodeId}/chart`);
+  return response.data;
+};
+
 // --- TRANSFORM OPERATIONS ---
 export const reorderColumns = async (parentId, orderedCols) => {
   const response = await api.post(`/nodes/transform/reorder?parent_id=${parentId}`, {
@@ -335,7 +416,8 @@ export const inspectNode = async (nodeId, limit = 50) => {
 
 export const downloadNodeData = async (nodeId, format = 'csv') => {
   const response = await api.get(`/nodes/${nodeId}/download?format=${format}`, {
-    responseType: 'blob'
+    responseType: 'blob',
+    timeout: 600000,
   });
   return response.data;
 };

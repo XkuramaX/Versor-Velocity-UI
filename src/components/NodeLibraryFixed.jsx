@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { 
   Upload, Filter, Columns, ArrowUpDown, Edit3, Type, Calculator, 
   BarChart3, Brain, Database, Trash2, GitMerge, Grid3x3, 
-  Calendar, Shuffle, TrendingUp, Target, Layers, Search, Hash
+  Calendar, Shuffle, TrendingUp, Target, Layers, Search, Hash,
+  FlaskConical, PieChart, LineChart, Activity, TestTube2
 } from 'lucide-react';
 
 const nodeCategories = {
@@ -69,6 +70,24 @@ const nodeCategories = {
     { type: 'linear_regression',  label: 'Linear Regression',  icon: Brain, color: 'from-pink-500 to-rose-500' },
     { type: 'logistic_prediction',label: 'Logistic Prediction', icon: Brain, color: 'from-rose-500 to-pink-500' },
     { type: 'correlation',        label: 'Correlation Matrix',  icon: TrendingUp, color: 'from-violet-500 to-purple-500' },
+  ],
+  'Utility': [
+    { type: 'add_literal_column', label: 'Add Constant Column', icon: Hash, color: 'from-emerald-500 to-teal-500' },
+    { type: 'range_bucket',       label: 'Range Bucket',        icon: BarChart3, color: 'from-teal-500 to-cyan-500' },
+    { type: 'date_offset',        label: 'Date Offset',         icon: Calendar, color: 'from-orange-500 to-amber-500' },
+    { type: 'crosstab',           label: 'Cross Tabulation',    icon: Grid3x3, color: 'from-indigo-500 to-blue-500' },
+    { type: 'cumulative_product', label: 'Cumulative Product',  icon: TrendingUp, color: 'from-purple-500 to-violet-500' },
+  ],
+  'Statistical Tests': [
+    { type: 'ols_regression',     label: 'OLS Regression (Full)',icon: Brain, color: 'from-pink-500 to-rose-500' },
+    { type: 't_test',             label: 'T-Test',              icon: TestTube2, color: 'from-blue-500 to-indigo-500' },
+    { type: 'f_test',             label: 'F-Test',              icon: TestTube2, color: 'from-indigo-500 to-purple-500' },
+    { type: 'chi_square_test',    label: 'Chi-Square Test',     icon: FlaskConical, color: 'from-purple-500 to-pink-500' },
+    { type: 'dw_test',            label: 'Durbin-Watson Test',  icon: Activity, color: 'from-teal-500 to-cyan-500' },
+    { type: 'anova_test',         label: 'ANOVA',               icon: FlaskConical, color: 'from-orange-500 to-red-500' },
+  ],
+  'Visualization': [
+    { type: 'chart',              label: 'Chart',               icon: BarChart3, color: 'from-cyan-500 to-blue-500' },
   ]
 };
 

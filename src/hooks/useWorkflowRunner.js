@@ -24,11 +24,16 @@ export const useWorkflowRunner = () => {
   };
 
   const _runNode = async (nodeId, nodes, edges, setNodes) => {
-    // Always read the freshest node state — never use the passed nodes array
-    // as it may be a stale snapshot from when runWorkflow/runSingleNode was called
+    // Always read the freshest node state
     let node = null;
     setNodes(nds => { node = nds.find(n => n.id === nodeId); return nds; });
     if (!node) return;
+
+    // If this node has a new file staged (fileRef), it MUST be re-executed
+    // even if it was previously executed. Clear the cache entry.
+    if (node.data?.fileRef && executedNodes.current[nodeId]) {
+      delete executedNodes.current[nodeId];
+    }
 
     if (executedNodes.current[nodeId]) return;
 
@@ -153,6 +158,33 @@ export const useWorkflowRunner = () => {
             result = await api.extractDateParts(parentId, config.column); break;
           case 'transpose':
             result = await api.transposeMatrix(parentId); break;
+          case 'add_literal_column':
+            result = await api.addLiteralColumn(parentId, config.column, config.value, config.dtype); break;
+          case 'range_bucket': {
+            const bins = typeof config.bins === 'string' ? config.bins.split(',').map(s => parseFloat(s.trim())) : config.bins;
+            const labels = typeof config.labels === 'string' ? config.labels.split(',').map(s => s.trim()) : config.labels;
+            result = await api.rangeBucket(parentId, config.column, bins, labels, config.new_col); break;
+          }
+          case 'date_offset':
+            result = await api.dateOffset(parentId, config.column, config.offset, config.unit, config.new_col); break;
+          case 'crosstab':
+            result = await api.crosstabNode(parentId, config.index, config.columns, config.values, config.agg); break;
+          case 'cumulative_product':
+            result = await api.cumulativeProduct(parentId, config.column, config.new_col); break;
+          case 'ols_regression':
+            result = await api.olsRegression(parentId, config.target, config.features); break;
+          case 't_test':
+            result = await api.tTest(parentId, config.column_a, config.column_b, config.test_type, config.alternative, config.popmean); break;
+          case 'f_test':
+            result = await api.fTest(parentId, config.column_a, config.column_b); break;
+          case 'chi_square_test':
+            result = await api.chiSquareTest(parentId, config.column_a, config.column_b); break;
+          case 'dw_test':
+            result = await api.dwTest(parentId, config.residuals_col); break;
+          case 'anova_test':
+            result = await api.anovaTest(parentId, config.value_col, config.group_col); break;
+          case 'chart':
+            result = await api.chartNode(parentId, config.chart_type, config.x_col, config.y_col, config.color_col, config.title, config.bins, config.agg); break;
           case 'join': {
             const joinEdges = edges.filter(e => e.target === nodeId);
             const leftId = executedNodes.current[joinEdges[0]?.source];
@@ -171,11 +203,22 @@ export const useWorkflowRunner = () => {
 
       executedNodes.current[nodeId] = result.node_id;
 
-      setNodes(nds => nds.map(n =>
-        n.id === nodeId
-          ? { ...n, data: { ...n.data, status: 'success', backendNodeId: result.node_id, metadata: result.metadata, fileRef: null, error: null } }
-          : n
-      ));
+      // Clear downstream nodes from cache since this node's data changed
+      const downstreamIds = _getDownstream(nodeId, edges);
+      for (const dsId of downstreamIds) {
+        delete executedNodes.current[dsId];
+      }
+
+      setNodes(nds => nds.map(n => {
+        if (n.id === nodeId) {
+          return { ...n, data: { ...n.data, status: 'success', backendNodeId: result.node_id, metadata: result.metadata, fileRef: null, error: null } };
+        }
+        // Reset downstream nodes to idle so they re-execute
+        if (downstreamIds.has(n.id) && n.data.backendNodeId) {
+          return { ...n, data: { ...n.data, status: 'idle', backendNodeId: null, metadata: null, error: null } };
+        }
+        return n;
+      }));
 
     } catch (error) {
       console.error('Node execution failed:', error);
@@ -260,4 +303,20 @@ const getExecutionOrder = (nodes, edges) => {
   }
   
   return result;
+};
+
+// Helper: get all downstream node IDs from a given node
+const _getDownstream = (nodeId, edges) => {
+  const downstream = new Set();
+  const queue = [nodeId];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    for (const edge of edges) {
+      if (edge.source === current && !downstream.has(edge.target)) {
+        downstream.add(edge.target);
+        queue.push(edge.target);
+      }
+    }
+  }
+  return downstream;
 };
