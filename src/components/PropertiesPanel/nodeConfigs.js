@@ -616,4 +616,36 @@ export const nodeConfigs = {
       { key: 'bins', label: 'Histogram Bins', type: 'number', default: 20, helpText: 'Only for histogram' },
     ]
   },
+
+  // Roll-Rate Analysis
+  monthly_snapshot: {
+    fields: [
+      { key: 'id_col', label: 'Account/ID Column', type: 'column_dropdown', required: true, helpText: 'Unique identifier (e.g. Account Number)' },
+      { key: 'date_col', label: 'Date Column', type: 'column_dropdown', required: true, helpText: 'Business/reporting date' },
+      { key: 'value_col', label: 'Value Column', type: 'column_dropdown', required: true, helpText: 'Column to aggregate (e.g. DPD)' },
+      { key: 'agg', label: 'Aggregation', type: 'select', default: 'max', options: [
+        { value: 'max', label: 'Max (worst value in month)' },
+        { value: 'last', label: 'Last (last observed in month)' },
+      ]},
+    ]
+  },
+  transition_matrix: {
+    fields: [
+      { key: 'id_col', label: 'Account/ID Column', type: 'column_dropdown', required: true },
+      { key: 'period_col', label: 'Period Column', type: 'column_dropdown', required: true, helpText: 'e.g. year_month from monthly_snapshot' },
+      { key: 'bucket_col', label: 'Bucket Column', type: 'column_dropdown', required: true, helpText: 'DPD bucket column' },
+      { key: 'bucket_order', label: 'Bucket Order (comma-separated)', type: 'text', default: '0,1-30,31-60,61-90,90+', helpText: 'Order from best to worst' },
+    ]
+  },
+  period_average_matrix: {
+    fields: [
+      { key: 'window', label: 'Window Size', type: 'number', default: 12, helpText: 'Number of transitions per performance period (12 = annual)' },
+      { key: 'bucket_order', label: 'Bucket Order (comma-separated)', type: 'text', default: '0,1-30,31-60,61-90,90+' },
+    ]
+  },
+  chain_probability: {
+    fields: [
+      { key: 'bucket_order', label: 'Bucket Order (comma-separated)', type: 'text', default: '0,1-30,31-60,61-90,90+' },
+    ]
+  },
 };

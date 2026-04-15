@@ -65,6 +65,10 @@ const NODE_META = {
   linear_regression:     { inputs: 1, category: 'ml' },
   logistic_prediction:   { inputs: 1, category: 'ml' },
   correlation:           { inputs: 1, category: 'ml' },
+  monthly_snapshot:      { inputs: 1, category: 'transform' },
+  transition_matrix:     { inputs: 1, category: 'transform' },
+  period_average_matrix: { inputs: 1, category: 'transform' },
+  chain_probability:     { inputs: 1, category: 'transform' },
 };
 
 const CATEGORY_ICONS = {
@@ -288,7 +292,7 @@ export default function CustomNode({ data, selected, id, allNodes, allEdges }) {
         {isError && data.error && (
           <div className="p-2 bg-red-500/20 border border-red-500/30 rounded text-xs text-red-300">
             <AlertCircle className="w-3 h-3 inline mr-1" />
-            <span className="line-clamp-2">{data.error}</span>
+            <span className="line-clamp-2">{typeof data.error === 'string' ? data.error : JSON.stringify(data.error)}</span>
           </div>
         )}
 

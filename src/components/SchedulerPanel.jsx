@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Clock, Play, Pause, Trash2, Upload, Download, FileText, X,
   RefreshCw, Copy, CheckCircle, AlertCircle, Loader, Calendar,
-  Link, FolderOpen, History,
+  Link, FolderOpen,
 } from 'lucide-react';
 import {
   getSchedule, setSchedule, deleteSchedule, toggleSchedule,
   getWatchedFiles, uploadWatchedFile, deleteWatchedFile,
-  triggerWorkflow, getScheduleRunHistory, getWebhookUrl,
+  triggerWorkflow, getWebhookUrl,
 } from '../services/api';
 
 const CRON_PRESETS = [
@@ -25,7 +25,7 @@ export default function SchedulerPanel({ workflowId, onClose }) {
   const [schedule, setScheduleState] = useState(null);
   const [cronInput, setCronInput] = useState('0 9 * * *');
   const [files, setFiles] = useState([]);
-  const [runs, setRuns] = useState([]);
+  const [uploadNodes, setUploadNodes] = useState([]);
   const [webhookInfo, setWebhookInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [triggering, setTriggering] = useState(false);
@@ -37,16 +37,15 @@ export default function SchedulerPanel({ workflowId, onClose }) {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [sched, fileList, runList, webhook] = await Promise.all([
+      const [sched, fileList, webhook] = await Promise.all([
         getSchedule(workflowId),
         getWatchedFiles(workflowId),
-        getScheduleRunHistory(workflowId),
         getWebhookUrl(workflowId),
       ]);
       setScheduleState(sched);
       if (sched.cron_expression) setCronInput(sched.cron_expression);
       setFiles(fileList.files || []);
-      setRuns(runList || []);
+      setUploadNodes(fileList.upload_nodes || []);
       setWebhookInfo(webhook);
     } catch (e) { console.error(e); }
     setLoading(false);
@@ -88,7 +87,7 @@ export default function SchedulerPanel({ workflowId, onClose }) {
     try {
       await uploadWatchedFile(workflowId, file);
       await loadAll();
-    } catch (err) { alert('Upload failed'); }
+    } catch (err) { alert('Upload failed: ' + (err.response?.data?.detail || err.message)); }
     e.target.value = '';
   };
 
@@ -99,10 +98,14 @@ export default function SchedulerPanel({ workflowId, onClose }) {
   };
 
   const copyWebhook = () => {
-    navigator.clipboard.writeText(webhookInfo?.example_curl || '');
+    navigator.clipboard.writeText(webhookInfo?.example_simple || '');
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Find unmatched upload nodes (nodes that don't have a file in the watched folder)
+  const matchedLabels = new Set(files.map(f => f.matched_node).filter(Boolean));
+  const unmatchedNodes = uploadNodes.filter(n => !matchedLabels.has(n.label));
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -127,7 +130,6 @@ export default function SchedulerPanel({ workflowId, onClose }) {
             { id: 'schedule', label: 'Schedule', icon: Calendar },
             { id: 'files', label: 'Data Files', icon: FolderOpen },
             { id: 'webhook', label: 'Webhook', icon: Link },
-            { id: 'history', label: 'Run History', icon: History },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`flex-1 flex items-center justify-center space-x-2 px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -205,8 +207,34 @@ export default function SchedulerPanel({ workflowId, onClose }) {
               {/* Files Tab */}
               {tab === 'files' && (
                 <div className="space-y-4">
+                  {/* Upload nodes info */}
+                  {uploadNodes.length > 0 && (
+                    <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                      <p className="text-xs text-blue-300 font-medium mb-2">
+                        This workflow has {uploadNodes.length} input node{uploadNodes.length > 1 ? 's' : ''}. Name your files to match:
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {uploadNodes.map(n => (
+                          <span key={n.node_id} className={`text-xs px-2 py-1 rounded font-mono ${
+                            matchedLabels.has(n.label)
+                              ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                              : 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                          }`}>
+                            {matchedLabels.has(n.label) ? '✅' : '⚠️'} {n.label}
+                          </span>
+                        ))}
+                      </div>
+                      {unmatchedNodes.length > 0 && (
+                        <p className="text-xs text-orange-400 mt-2">
+                          ⚠️ {unmatchedNodes.length} node{unmatchedNodes.length > 1 ? 's' : ''} missing files.
+                          Upload files named exactly like the node labels above.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-slate-300">Files in the watched folder for this workflow. The scheduler picks these up on each run.</p>
+                    <p className="text-sm text-slate-300">Files in the watched folder. The scheduler picks these up on each run.</p>
                     <button onClick={() => fileInputRef.current?.click()}
                       className="flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">
                       <Upload className="w-4 h-4" /><span>Upload</span>
@@ -227,7 +255,19 @@ export default function SchedulerPanel({ workflowId, onClose }) {
                             <FileText className="w-5 h-5 text-cyan-400" />
                             <div>
                               <p className="text-sm text-white">{f.filename}</p>
-                              <p className="text-xs text-slate-500">{f.size_mb} MB · Modified {new Date(f.modified_at).toLocaleDateString()}</p>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-xs text-slate-500">{f.size_mb} MB · {new Date(f.modified_at).toLocaleDateString()}</span>
+                                {f.matched_node && (
+                                  <span className="text-xs bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded">
+                                    → {f.matched_node}
+                                  </span>
+                                )}
+                                {!f.matched_node && (
+                                  <span className="text-xs bg-slate-600/50 text-slate-400 px-1.5 py-0.5 rounded">
+                                    unmatched
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <div className="flex items-center space-x-1">
@@ -263,55 +303,30 @@ export default function SchedulerPanel({ workflowId, onClose }) {
 
                   <div>
                     <label className="block text-xs text-slate-400 mb-1">Example: Simple trigger</label>
-                    <pre className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-xs text-slate-300 overflow-x-auto">
-                      {webhookInfo.example_curl}
+                    <pre className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap">
+                      {webhookInfo.example_simple}
                     </pre>
                   </div>
 
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1">Example: Trigger with file upload</label>
-                    <pre className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-xs text-slate-300 overflow-x-auto">
-                      {webhookInfo.example_with_file}
-                    </pre>
-                  </div>
-                </div>
-              )}
-
-              {/* History Tab */}
-              {tab === 'history' && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-slate-300">Recent workflow runs</p>
-                    <button onClick={loadAll} className="p-2 text-slate-400 hover:text-white"><RefreshCw className="w-4 h-4" /></button>
-                  </div>
-
-                  {runs.length === 0 ? (
-                    <div className="text-center py-8 text-slate-500">
-                      <History className="w-10 h-10 mx-auto mb-2 opacity-50" />
-                      <p>No runs yet</p>
+                  {webhookInfo.example_with_file && (
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1">Example: Trigger with file</label>
+                      <pre className="px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-xs text-slate-300 overflow-x-auto whitespace-pre-wrap">
+                        {webhookInfo.example_with_file}
+                      </pre>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {runs.map(r => (
-                        <div key={r.id} className={`p-3 rounded-lg border ${
-                          r.status === 'success' ? 'bg-green-500/5 border-green-500/20' :
-                          r.status === 'error' ? 'bg-red-500/5 border-red-500/20' :
-                          'bg-slate-700/30 border-slate-600/50'
-                        }`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              {r.status === 'success' ? <CheckCircle className="w-4 h-4 text-green-400" /> :
-                               r.status === 'error' ? <AlertCircle className="w-4 h-4 text-red-400" /> :
-                               <Loader className="w-4 h-4 text-blue-400 animate-spin" />}
-                              <span className="text-sm text-white capitalize">{r.status}</span>
-                              <span className="text-xs px-2 py-0.5 bg-slate-700 rounded text-slate-400">{r.trigger_type}</span>
-                            </div>
-                            <span className="text-xs text-slate-500">{new Date(r.started_at).toLocaleString()}</span>
-                          </div>
-                          {r.duration_seconds && <p className="text-xs text-slate-500 mt-1">Duration: {r.duration_seconds.toFixed(1)}s</p>}
-                          {r.error && <p className="text-xs text-red-400 mt-1 truncate">{r.error}</p>}
+                  )}
+
+                  {webhookInfo.note && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                      <p className="text-xs text-amber-300">{webhookInfo.note}</p>
+                      {webhookInfo.upload_nodes && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {webhookInfo.upload_nodes.map(n => (
+                            <span key={n} className="text-xs bg-amber-500/20 text-amber-200 px-2 py-0.5 rounded font-mono">{n}</span>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>

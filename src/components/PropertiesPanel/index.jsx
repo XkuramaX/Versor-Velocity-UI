@@ -34,37 +34,33 @@ export function PropertiesPanel({ selectedNode, onUpdateNode, onUploadClick, onC
   }, [selectedNode?.id]);
 
   // ── Fetch parent columns ──────────────────────────────────────────────────
+  // Extract the parent's backendNodeId as a primitive string so the useEffect
+  // below only fires when it truly changes — NOT on every node drag/position update.
+  const parentEdge = edges.find(e => e.target === selectedNode?.id);
+  const parentNode = parentEdge ? nodes.find(n => n.id === parentEdge.source) : null;
+  const parentBackendNodeId = parentNode?.data?.backendNodeId || null;
+
   useEffect(() => {
-    const fetch = async () => {
-      if (!selectedNode) return;
-      const parentEdge = edges.find(e => e.target === selectedNode.id);
-      if (!parentEdge) { setAvailableColumns([]); return; }
-      const parentNode = nodes.find(n => n.id === parentEdge.source);
-      if (!parentNode?.data?.backendNodeId) { setAvailableColumns([]); return; }
-      try {
-        const res = await getNodeColumns(parentNode.data.backendNodeId);
-        setAvailableColumns(res.columns || []);
-      } catch { setAvailableColumns([]); }
-    };
-    fetch();
-  }, [selectedNode?.id, nodes, edges]);
+    if (!selectedNode) return;
+    if (!parentBackendNodeId) { setAvailableColumns([]); return; }
+    let cancelled = false;
+    getNodeColumns(parentBackendNodeId)
+      .then(res => { if (!cancelled) setAvailableColumns(res.columns || []); })
+      .catch(() => { if (!cancelled) setAvailableColumns([]); });
+    return () => { cancelled = true; };
+  }, [selectedNode?.id, parentBackendNodeId]);
 
   // ── Fetch column values for filter node ──────────────────────────────────
   useEffect(() => {
-    const fetch = async () => {
-      if (selectedNode?.data?.nodeType !== 'filter' || !config.column) {
-        setColumnValues([]); return;
-      }
-      const parentEdge = edges.find(e => e.target === selectedNode.id);
-      const parentNode = parentEdge ? nodes.find(n => n.id === parentEdge.source) : null;
-      if (!parentNode?.data?.backendNodeId) { setColumnValues([]); return; }
-      try {
-        const res = await getColumnValues(parentNode.data.backendNodeId, config.column);
-        setColumnValues(res.values || []);
-      } catch { setColumnValues([]); }
-    };
-    fetch();
-  }, [config.column, selectedNode?.id, nodes, edges]);
+    if (selectedNode?.data?.nodeType !== 'filter' || !config.column || !parentBackendNodeId) {
+      setColumnValues([]); return;
+    }
+    let cancelled = false;
+    getColumnValues(parentBackendNodeId, config.column)
+      .then(res => { if (!cancelled) setColumnValues(res.values || []); })
+      .catch(() => { if (!cancelled) setColumnValues([]); });
+    return () => { cancelled = true; };
+  }, [config.column, selectedNode?.id, parentBackendNodeId]);
 
   const updateConfig = useCallback((key, value) => {
     setConfig(prev => {

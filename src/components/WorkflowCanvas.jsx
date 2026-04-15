@@ -836,15 +836,58 @@ export default function WorkflowCanvas({
               onClearData={handleClearData}
               onUpdateNode={(nodeId, updates) => {
                 if (!permissions.canEdit) return;
-                setNodes((nds) => nds.map(node => {
-                  if (node.id !== nodeId) return node;
-                  // updates can be a function (receives current data) or a plain object
+                setNodes((nds) => {
+                  // Apply the update first to detect config changes
+                  const target = nds.find(n => n.id === nodeId);
+                  if (!target) return nds;
+
+                  let newData;
                   if (typeof updates === 'function') {
-                    return { ...node, data: { ...node.data, ...updates(node.data) } };
+                    newData = { ...target.data, ...updates(target.data) };
+                  } else {
+                    // Legacy object form
+                    newData = { ...target.data, ...(updates.data || {}) };
                   }
-                  // Legacy object form: { data: { ...node.data, config: next } }
-                  return { ...node, ...updates };
-                }));
+
+                  // Detect if config actually changed on an executed or errored node
+                  const wasExecuted = target.data.backendNodeId || target.data.status === 'error' || target.data.status === 'stale';
+                  const configChanged = wasExecuted &&
+                    newData.config && target.data.config &&
+                    JSON.stringify(newData.config) !== JSON.stringify(target.data.config);
+
+                  if (!configChanged) {
+                    // No config change (e.g. label rename, saveDataframe toggle) — just apply
+                    return nds.map(n => n.id === nodeId
+                      ? { ...n, data: typeof updates === 'function' ? { ...n.data, ...updates(n.data) } : { ...n.data, ...(updates.data || {}) } }
+                      : n
+                    );
+                  }
+
+                  // Config changed — reset this node to idle + invalidate downstream
+                  const downstream = new Set();
+                  const queue = [nodeId];
+                  while (queue.length) {
+                    const cur = queue.shift();
+                    for (const e of edgesRef.current) {
+                      if (e.source === cur && !downstream.has(e.target)) {
+                        downstream.add(e.target);
+                        queue.push(e.target);
+                      }
+                    }
+                  }
+
+                  const resetStatus = target.data.backendNodeId ? 'stale' : 'idle';
+
+                  return nds.map(n => {
+                    if (n.id === nodeId) {
+                      return { ...n, data: { ...newData, status: resetStatus, backendNodeId: null, metadata: null, error: null } };
+                    }
+                    if (downstream.has(n.id) && (n.data.backendNodeId || n.data.status === 'error')) {
+                      return { ...n, data: { ...n.data, status: 'idle', backendNodeId: null, metadata: null, error: null, _parentUpdated: Date.now() } };
+                    }
+                    return n;
+                  });
+                });
               }}
             />
           </div>

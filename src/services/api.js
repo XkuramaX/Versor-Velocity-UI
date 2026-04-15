@@ -431,14 +431,12 @@ export const deleteWatchedFile = async (workflowId, filename) => {
 };
 
 export const triggerWorkflow = async (workflowId, triggeredBy = 'manual') => {
-  const response = await api.post(`/scheduler/workflows/${workflowId}/trigger`, {
-    triggered_by: triggeredBy,
-  }, { timeout: 600000 });
-  return response.data;
-};
-
-export const getScheduleRunHistory = async (workflowId, limit = 20) => {
-  const response = await api.get(`/scheduler/workflows/${workflowId}/runs?limit=${limit}`);
+  const formData = new FormData();
+  formData.append('triggered_by', triggeredBy);
+  const response = await api.post(`/scheduler/workflows/${workflowId}/trigger`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 600000,
+  });
   return response.data;
 };
 
@@ -545,6 +543,49 @@ export const getFeatureTickets = async (status = null) => {
 
 export const voteFeatureTicket = async (ticketId) => {
   const response = await api.post(`/ai/tickets/${ticketId}/vote`);
+  return response.data;
+};
+
+// --- NODE DATA API (authenticated) ---
+export const getNodeDataAuthenticated = async (workflowId, nodeFrontendId, token, format = 'json', limit = 100) => {
+  const opts = { headers: { Authorization: `Bearer ${token}` } };
+  if (format === 'csv') {
+    opts.responseType = 'blob';
+    opts.timeout = 600000;
+  }
+  const response = await api.get(
+    `/scheduler/workflows/${workflowId}/nodes/${nodeFrontendId}/data?format=${format}&limit=${limit}`,
+    opts
+  );
+  return response.data;
+};
+
+// --- ROLL-RATE ANALYSIS ---
+export const monthlySnapshot = async (parentId, idCol, dateCol, valueCol, agg = 'max') => {
+  const response = await api.post(`/nodes/rollrate/monthly_snapshot?parent_id=${parentId}`, {
+    id_col: idCol, date_col: dateCol, value_col: valueCol, agg
+  });
+  return response.data;
+};
+
+export const transitionMatrix = async (parentId, idCol, periodCol, bucketCol, bucketOrder = null) => {
+  const body = { id_col: idCol, period_col: periodCol, bucket_col: bucketCol };
+  if (bucketOrder) body.bucket_order = bucketOrder;
+  const response = await api.post(`/nodes/rollrate/transition_matrix?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const periodAverage = async (parentId, window = 12, bucketOrder = null) => {
+  const body = { window };
+  if (bucketOrder) body.bucket_order = bucketOrder;
+  const response = await api.post(`/nodes/rollrate/period_average?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const chainProbability = async (parentId, bucketOrder = null) => {
+  const body = {};
+  if (bucketOrder) body.bucket_order = bucketOrder;
+  const response = await api.post(`/nodes/rollrate/chain_probability?parent_id=${parentId}`, body);
   return response.data;
 };
 

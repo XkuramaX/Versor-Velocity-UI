@@ -91,8 +91,10 @@ export const useWorkflowRunner = () => {
             result = await api.selectColumns(parentId, config.columns); break;
           case 'drop':
             result = await api.dropColumns(parentId, config.columns); break;
-          case 'sort':
-            result = await api.sortData(parentId, config.by, config.descending ?? false); break;
+          case 'sort': {
+            const desc = Array.isArray(config.descending) ? config.descending[0] : config.descending;
+            result = await api.sortData(parentId, config.by, desc ?? false); break;
+          }
           case 'rename':
             result = await api.renameColumns(parentId, config.mapping); break;
           case 'reorder':
@@ -188,6 +190,20 @@ export const useWorkflowRunner = () => {
             result = await api.anovaTest(parentId, config.value_col, config.group_col); break;
           case 'chart':
             result = await api.chartNode(parentId, config.chart_type, config.x_col, config.y_col, config.color_col, config.title, config.bins, config.agg); break;
+          case 'monthly_snapshot':
+            result = await api.monthlySnapshot(parentId, config.id_col, config.date_col, config.value_col, config.agg || 'max'); break;
+          case 'transition_matrix': {
+            const bo = typeof config.bucket_order === 'string' ? config.bucket_order.split(',').map(s => s.trim()) : config.bucket_order;
+            result = await api.transitionMatrix(parentId, config.id_col, config.period_col, config.bucket_col, bo); break;
+          }
+          case 'period_average_matrix': {
+            const bo2 = typeof config.bucket_order === 'string' ? config.bucket_order.split(',').map(s => s.trim()) : config.bucket_order;
+            result = await api.periodAverage(parentId, config.window || 12, bo2); break;
+          }
+          case 'chain_probability': {
+            const bo3 = typeof config.bucket_order === 'string' ? config.bucket_order.split(',').map(s => s.trim()) : config.bucket_order;
+            result = await api.chainProbability(parentId, bo3); break;
+          }
           case 'join': {
             const joinEdges = edges.filter(e => e.target === nodeId);
             const leftId = executedNodes.current[joinEdges[0]?.source];
@@ -226,9 +242,16 @@ export const useWorkflowRunner = () => {
 
     } catch (error) {
       console.error('Node execution failed:', error);
+      const detail = error.response?.data?.detail;
+      let errMsg = error.message;
+      if (typeof detail === 'string') {
+        errMsg = detail;
+      } else if (Array.isArray(detail)) {
+        errMsg = detail.map(d => d.msg || JSON.stringify(d)).join('; ');
+      }
       setNodes(nds => nds.map(n =>
         n.id === nodeId
-          ? { ...n, data: { ...n.data, status: 'error', error: error.response?.data?.detail || error.message } }
+          ? { ...n, data: { ...n.data, status: 'error', error: errMsg } }
           : n
       ));
     }
