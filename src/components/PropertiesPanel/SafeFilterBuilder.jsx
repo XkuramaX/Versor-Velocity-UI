@@ -298,17 +298,7 @@ export function SafeFilterBuilder({ nodeId, value, onChange, api }) {
                 availableValues={columnInfo[filter.column]?.unique_values || []}
                 operator="in"
               />
-            ) : filter.column_type === 'numeric' ? (
-              <div>
-                <label className="block text-xs text-slate-400 mb-1">Value</label>
-                <input
-                  type="number"
-                  value={filter.value || ''}
-                  onChange={(e) => updateFilter(index, 'value', parseFloat(e.target.value))}
-                  className="w-full px-2 py-1 bg-slate-700/30 border border-slate-600 rounded text-white text-sm"
-                />
-              </div>
-            ) : (
+            ) : ['contains', 'starts_with', 'ends_with'].includes(filter.operation) ? (
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Value</label>
                 <input
@@ -317,6 +307,49 @@ export function SafeFilterBuilder({ nodeId, value, onChange, api }) {
                   onChange={(e) => updateFilter(index, 'value', e.target.value)}
                   className="w-full px-2 py-1 bg-slate-700/30 border border-slate-600 rounded text-white text-sm"
                 />
+              </div>
+            ) : (
+              /* Numeric/string eq/ne/gt/lt etc. — support column comparison */
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-slate-400">Compare to</label>
+                  <div className="flex rounded overflow-hidden border border-slate-600">
+                    <button type="button"
+                      onClick={() => { updateFilter(index, 'compare_column', null); updateFilter(index, 'value', ''); }}
+                      className={`px-2 py-0.5 text-[10px] font-medium border-r border-slate-600 transition-colors ${!filter.compare_column ? 'bg-cyan-600 text-white border-cyan-500' : 'bg-slate-700/30 text-slate-400 border-slate-600'}`}
+                    >Value</button>
+                    <button type="button"
+                      onClick={() => { updateFilter(index, 'compare_column', ''); updateFilter(index, 'value', ''); }}
+                      className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${filter.compare_column !== null && filter.compare_column !== undefined ? 'bg-cyan-600 text-white border-cyan-500' : 'bg-slate-700/30 text-slate-400 border-slate-600'}`}
+                    >Column</button>
+                  </div>
+                </div>
+                {filter.compare_column !== null && filter.compare_column !== undefined ? (
+                  <select
+                    value={filter.compare_column || ''}
+                    onChange={(e) => updateFilter(index, 'compare_column', e.target.value)}
+                    className="w-full px-2 py-1 bg-slate-700/30 border border-slate-600 rounded text-white text-sm"
+                  >
+                    <option value="">Select column</option>
+                    {columns.filter(c => c !== filter.column).map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                ) : filter.column_type === 'numeric' ? (
+                  <input
+                    type="number"
+                    value={filter.value || ''}
+                    onChange={(e) => updateFilter(index, 'value', parseFloat(e.target.value))}
+                    className="w-full px-2 py-1 bg-slate-700/30 border border-slate-600 rounded text-white text-sm"
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    value={filter.value || ''}
+                    onChange={(e) => updateFilter(index, 'value', e.target.value)}
+                    className="w-full px-2 py-1 bg-slate-700/30 border border-slate-600 rounded text-white text-sm"
+                  />
+                )}
               </div>
             )
           )}

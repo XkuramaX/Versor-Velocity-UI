@@ -95,8 +95,14 @@ export function ColumnPickerField({ label, required, value = [], onChange, avail
   }
 
   const selected = Array.isArray(value) ? value : [];
+  // Filter out stale values that no longer exist in available columns
+  const validSelected = selected.filter(c => availableColumns.includes(c));
+  if (validSelected.length !== selected.length) {
+    // Auto-clean: push the filtered list back so the config stays in sync
+    Promise.resolve().then(() => onChange(validSelected));
+  }
   const toggle = (col) => {
-    const next = selected.includes(col) ? selected.filter(c => c !== col) : [...selected, col];
+    const next = validSelected.includes(col) ? validSelected.filter(c => c !== col) : [...validSelected, col];
     onChange(next);
   };
   const selectAll = () => onChange([...availableColumns]);
@@ -336,7 +342,9 @@ export function GroupByAggsField({ label, required, value = {}, onChange, availa
 // Conditional column builder — dynamic IF/THEN/ELSE with column-or-literal choice
 export function ConditionalBuilder({ value = {}, onChange, availableColumns = [] }) {
   const { col = '', op = 'gt', threshold = '', then_val = '', else_val = '', new_col = '' } = value;
-  // Track whether THEN/ELSE are column refs or literal values
+  const [thresholdMode, setThresholdMode] = React.useState(
+    availableColumns.includes(threshold) ? 'column' : 'literal'
+  );
   const [thenMode, setThenMode] = React.useState(
     availableColumns.includes(then_val) ? 'column' : 'literal'
   );
@@ -422,11 +430,10 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
               {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-          {/* Threshold */}
+          {/* Threshold — value or column */}
           <div>
-            <label className="block text-[10px] text-slate-500 mb-1">Value</label>
-            <input value={threshold} onChange={e => update({ threshold: e.target.value })}
-              placeholder="e.g. 90000" className={inputCls} />
+            <ValueInput mode={thresholdMode} setMode={setThresholdMode} val={threshold}
+              onValChange={v => update({ threshold: v })} label="Compare to" />
           </div>
         </div>
       </div>
@@ -463,6 +470,7 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
           <span className="text-white">{col}</span>{' '}
           <span className="text-yellow-400">{OP_SYMBOLS[op]}</span>{' '}
           <span className="text-white">{threshold}</span>
+          {thresholdMode === 'column' && <span className="text-slate-500"> (col)</span>}
           <br />
           <span className="text-emerald-400">  → THEN</span>{' '}
           <span className="text-white">{then_val || '...'}</span>
