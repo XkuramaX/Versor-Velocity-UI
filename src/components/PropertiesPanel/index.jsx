@@ -429,8 +429,8 @@ export function PropertiesPanel({ selectedNode, onUpdateNode, onUploadClick, onC
           </div>
         )}
 
-        {/* ── Save dataframe toggle (non-source nodes) ── */}
-        {!isSourceNode && (
+        {/* ── Save dataframe toggle (all nodes) ── */}
+        {nodeType && (
           <>
             <div className="border-t border-slate-700/50" />
             <label className="flex items-center justify-between cursor-pointer">

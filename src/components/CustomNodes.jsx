@@ -3,8 +3,26 @@ import { Handle, Position } from 'reactflow';
 import {
   Play, Eye, Trash2, Upload, AlertCircle, CheckCircle, Clock, Loader,
   Zap, Database, Filter, Calculator, Type, Brain, Trash, GitMerge, Download,
-  Lock
+  Lock, BarChart3
 } from 'lucide-react';
+import { getChartImage } from '../services/api';
+
+function ChartThumbnail({ nodeId }) {
+  const [img, setImg] = React.useState(null);
+  React.useEffect(() => {
+    if (nodeId) {
+      getChartImage(nodeId)
+        .then(r => { if (r?.chart_image) setImg(r.chart_image); })
+        .catch(() => {});
+    }
+  }, [nodeId]);
+  if (!img) return null;
+  return (
+    <div className="rounded overflow-hidden border border-slate-600">
+      <img src={`data:image/png;base64,${img}`} alt="Chart" className="w-full h-auto" />
+    </div>
+  );
+}
 
 const NODE_META = {
   upload_csv:            { inputs: 0, category: 'ingestion' },
@@ -232,6 +250,14 @@ export default function CustomNode({ data, selected, id, allNodes, allEdges }) {
           </div>
         )}
 
+        {/* File uploaded and executed */}
+        {isUploadNode && backendNodeId && (
+          <div className="p-2 bg-green-500/10 border border-green-500/30 rounded text-xs text-green-300">
+            <span className="truncate block">✅ {fileName || 'File loaded'}</span>
+            <span className="text-green-400/70">Click 📤 to replace file</span>
+          </div>
+        )}
+
         {/* Upload required */}
         {isUploadNode && !fileRef && !backendNodeId && (
           <div className="p-2 bg-orange-500/20 border border-orange-500/30 rounded text-xs text-orange-300 animate-pulse">
@@ -244,6 +270,11 @@ export default function CustomNode({ data, selected, id, allNodes, allEdges }) {
           <div className="p-2 bg-slate-700/50 border border-slate-600 rounded text-xs text-slate-400 flex items-center gap-1">
             <Lock className="w-3 h-3" />{lockReason}
           </div>
+        )}
+
+        {/* Chart thumbnail for chart nodes */}
+        {nodeType === 'chart' && backendNodeId && (
+          <ChartThumbnail nodeId={backendNodeId} />
         )}
 
         {/* Stale */}
@@ -308,6 +339,7 @@ export default function CustomNode({ data, selected, id, allNodes, allEdges }) {
                 <Download className="w-4 h-4" />
               </button>
             )}
+
           </div>
 
           {/* Delete button — only when onDelete is provided */}

@@ -388,6 +388,65 @@ export const getChartImage = async (nodeId) => {
   return response.data;
 };
 
+// --- SCHEDULER ---
+export const getSchedule = async (workflowId) => {
+  const response = await api.get(`/scheduler/workflows/${workflowId}/schedule`);
+  return response.data;
+};
+
+export const setSchedule = async (workflowId, cronExpression, enabled = true, createdBy = 'admin') => {
+  const response = await api.post(`/scheduler/workflows/${workflowId}/schedule`, {
+    cron_expression: cronExpression, enabled, created_by: createdBy,
+  });
+  return response.data;
+};
+
+export const deleteSchedule = async (workflowId) => {
+  const response = await api.delete(`/scheduler/workflows/${workflowId}/schedule`);
+  return response.data;
+};
+
+export const toggleSchedule = async (workflowId, enabled) => {
+  const response = await api.patch(`/scheduler/workflows/${workflowId}/schedule/toggle`, { enabled });
+  return response.data;
+};
+
+export const getWatchedFiles = async (workflowId) => {
+  const response = await api.get(`/scheduler/workflows/${workflowId}/files`);
+  return response.data;
+};
+
+export const uploadWatchedFile = async (workflowId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post(`/scheduler/workflows/${workflowId}/files/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 600000,
+  });
+  return response.data;
+};
+
+export const deleteWatchedFile = async (workflowId, filename) => {
+  const response = await api.delete(`/scheduler/workflows/${workflowId}/files/${encodeURIComponent(filename)}`);
+  return response.data;
+};
+
+export const triggerWorkflow = async (workflowId, triggeredBy = 'manual') => {
+  const response = await api.post(`/scheduler/workflows/${workflowId}/trigger`, {
+    triggered_by: triggeredBy,
+  }, { timeout: 600000 });
+  return response.data;
+};
+
+export const getScheduleRunHistory = async (workflowId, limit = 20) => {
+  const response = await api.get(`/scheduler/workflows/${workflowId}/runs?limit=${limit}`);
+  return response.data;
+};
+
+export const getWebhookUrl = async (workflowId) => {
+  const response = await api.get(`/scheduler/workflows/${workflowId}/webhook-url`);
+  return response.data;
+};
+
 // --- TRANSFORM OPERATIONS ---
 export const reorderColumns = async (parentId, orderedCols) => {
   const response = await api.post(`/nodes/transform/reorder?parent_id=${parentId}`, {

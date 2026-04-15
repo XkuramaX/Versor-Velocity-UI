@@ -13,7 +13,7 @@ import 'reactflow/dist/style.css';
 
 import {
   Play, Save, Download, Upload,
-  Users, Share2, Lock, Unlock, Eye, Loader, Sparkles, LayoutGrid
+  Users, Share2, Lock, Unlock, Eye, Loader, Sparkles, LayoutGrid, Clock
 } from 'lucide-react';
 
 import CustomNodes from './CustomNodes';
@@ -25,6 +25,7 @@ import FileUploadModal from './FileUploadModal';
 import ValidationTooltip from './ValidationTooltip';
 import PermissionManager from './PermissionManager';
 import SaveWorkflowModal from './SaveWorkflowModal';
+import SchedulerPanel from './SchedulerPanel';
 import FileHistoryTab from './FileHistoryTab';
 import VersionHistoryTab from './VersionHistoryTab';
 import { useWorkflowRunner } from '../hooks/useWorkflowRunner';
@@ -70,6 +71,7 @@ export default function WorkflowCanvas({
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
   const [activeTab, setActiveTab] = useState('canvas');
   const [uploadingNode, setUploadingNode] = useState(null);
   const [validationError, setValidationError] = useState(null);
@@ -177,9 +179,8 @@ export default function WorkflowCanvas({
   }, [setNodes, setEdges]);
 
   const handleRunNode = useCallback(async (nodeId) => {
-    if (!permissions.canRun) return;
     await runSingleNode(nodeId, nodesRef.current, edgesRef.current, setNodes, true);
-  }, [permissions.canRun, runSingleNode]);
+  }, [runSingleNode]);
 
   const handleClearData = useCallback(async (nodeId) => {
     if (!permissions.canEdit) return;
@@ -408,6 +409,7 @@ export default function WorkflowCanvas({
               ...node.data,
               fileRef,
               fileName: file.name,
+              backendNodeId: null,
               config: { ...node.data.config, sheet_name: metadata?.sheet_name || 'Sheet1' },
               status: 'idle',
               metadata: null,
@@ -798,6 +800,16 @@ export default function WorkflowCanvas({
                     <span>Share</span>
                   </button>
                 )}
+
+                {permissions.canEdit && workflowId && (
+                  <button
+                    onClick={() => setShowScheduler(true)}
+                    className="flex items-center space-x-2 btn-secondary"
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span>Schedule</span>
+                  </button>
+                )}
               </Panel>
 
               {/* Validation Error Tooltip */}
@@ -869,6 +881,13 @@ export default function WorkflowCanvas({
           nodes={nodes}
           edges={edges}
           onClose={() => setShowSaveModal(false)}
+        />
+      )}
+
+      {showScheduler && workflowId && (
+        <SchedulerPanel
+          workflowId={workflowId}
+          onClose={() => setShowScheduler(false)}
         />
       )}
     </div>

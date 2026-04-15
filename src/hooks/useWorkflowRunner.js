@@ -13,11 +13,14 @@ export const useWorkflowRunner = () => {
     // previously-executed parents are re-resolved from their backendNodeId (#9)
     if (isStandaloneRun) {
       executedNodes.current = {};
-      // Pre-populate cache from already-executed nodes so we don't re-run them
+      // Pre-populate cache from already-executed nodes so we don't re-run them.
+      // Skip nodes that have a fileRef (new file staged but not yet executed).
       let currentNodes = nodes;
       setNodes(nds => { currentNodes = nds; return nds; });
       currentNodes.forEach(n => {
-        if (n.data?.backendNodeId) executedNodes.current[n.id] = n.data.backendNodeId;
+        if (n.data?.backendNodeId && !n.data?.fileRef) {
+          executedNodes.current[n.id] = n.data.backendNodeId;
+        }
       });
     }
     await _runNode(nodeId, nodes, edges, setNodes);
@@ -213,9 +216,10 @@ export const useWorkflowRunner = () => {
         if (n.id === nodeId) {
           return { ...n, data: { ...n.data, status: 'success', backendNodeId: result.node_id, metadata: result.metadata, fileRef: null, error: null } };
         }
-        // Reset downstream nodes to idle so they re-execute
-        if (downstreamIds.has(n.id) && n.data.backendNodeId) {
-          return { ...n, data: { ...n.data, status: 'idle', backendNodeId: null, metadata: null, error: null } };
+        // Touch ALL downstream nodes so they re-render and see the parent's new backendNodeId.
+        // This forces React Flow to re-evaluate isReady in CustomNodes.
+        if (downstreamIds.has(n.id)) {
+          return { ...n, data: { ...n.data, status: 'idle', backendNodeId: null, metadata: null, error: null, _parentUpdated: Date.now() } };
         }
         return n;
       }));
@@ -241,7 +245,9 @@ export const useWorkflowRunner = () => {
     let currentNodes = nodes;
     setNodes(nds => { currentNodes = nds; return nds; });
     currentNodes.forEach(n => {
-      if (n.data?.backendNodeId) executedNodes.current[n.id] = n.data.backendNodeId;
+      if (n.data?.backendNodeId && !n.data?.fileRef) {
+        executedNodes.current[n.id] = n.data.backendNodeId;
+      }
     });
 
     if (workflowId) workflowApi.markRun(workflowId, 'RUNNING').catch(() => {});
