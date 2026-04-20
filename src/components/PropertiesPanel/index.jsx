@@ -193,7 +193,6 @@ export function PropertiesPanel({ selectedNode, onUpdateNode, onUploadClick, onC
                   ...config,
                   _cond_col: val.col, _cond_op: val.op, _cond_threshold: val.threshold,
                   then_val: val.then_val, else_val: val.else_val, new_col: val.new_col
-                  // No condition_expr — backend builds it safely
                 };
                 setConfig(next);
                 onUpdateNode?.(selectedNode.id, (d) => ({ ...d, config: next }));

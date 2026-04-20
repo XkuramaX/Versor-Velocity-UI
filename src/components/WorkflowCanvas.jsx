@@ -700,6 +700,7 @@ export default function WorkflowCanvas({
               fitView
               className="workflow-canvas"
               proOptions={{ hideAttribution: true }}
+              deleteKeyCode={null}
             >
               <Background
                 color="#334155"

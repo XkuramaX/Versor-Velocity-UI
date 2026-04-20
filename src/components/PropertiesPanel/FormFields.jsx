@@ -340,21 +340,40 @@ export function GroupByAggsField({ label, required, value = {}, onChange, availa
 }
 
 // Conditional column builder — dynamic IF/THEN/ELSE with column-or-literal choice
+
+// Conditional column builder — dynamic IF/THEN/ELSE with column-or-literal choice
 export function ConditionalBuilder({ value = {}, onChange, availableColumns = [] }) {
-  // Local state to avoid parent re-renders on every keystroke
-  const [local, setLocal] = React.useState(value);
-  const localRef = React.useRef(local);
-  localRef.current = local;
-  React.useEffect(() => { setLocal(v => ({ ...v, col: value.col, op: value.op })); }, [value.col, value.op]);
-  const { col = '', op = 'gt', threshold = '', then_val = '', else_val = '', new_col = '' } = local;
+  // Individual local state for each text field to prevent focus loss.
+  // Dropdowns (col, op) read directly from value prop — no typing involved.
+  const [threshold, setThreshold] = React.useState(value.threshold || '');
+  const [thenVal, setThenVal] = React.useState(value.then_val || '');
+  const [elseVal, setElseVal] = React.useState(value.else_val || '');
+  const [newCol, setNewCol] = React.useState(value.new_col || '');
+
+  // Re-sync local text state only when the selected node changes (col+op identity)
+  const syncKey = React.useRef(`${value.col}|${value.op}`);
+  React.useEffect(() => {
+    const key = `${value.col}|${value.op}`;
+    if (key !== syncKey.current) {
+      syncKey.current = key;
+      setThreshold(value.threshold || '');
+      setThenVal(value.then_val || '');
+      setElseVal(value.else_val || '');
+      setNewCol(value.new_col || '');
+    }
+  }, [value]);
+
+  const col = value.col || '';
+  const op = value.op || 'gt';
+
   const [thresholdMode, setThresholdMode] = React.useState(
-    availableColumns.includes(threshold) ? 'column' : 'literal'
+    availableColumns.includes(value.threshold) ? 'column' : 'literal'
   );
   const [thenMode, setThenMode] = React.useState(
-    availableColumns.includes(then_val) ? 'column' : 'literal'
+    availableColumns.includes(value.then_val) ? 'column' : 'literal'
   );
   const [elseMode, setElseMode] = React.useState(
-    availableColumns.includes(else_val) ? 'column' : 'literal'
+    availableColumns.includes(value.else_val) ? 'column' : 'literal'
   );
 
   const OPS = [
@@ -363,20 +382,17 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
     { value: 'lt',  label: '<' },
     { value: 'lte', label: '<=' },
     { value: 'eq',  label: '=' },
-    { value: 'ne',  label: '≠' },
+    { value: 'ne',  label: '\u2260' },
   ];
-
   const OP_SYMBOLS = { gt: '>', gte: '>=', lt: '<', lte: '<=', eq: '==', ne: '!=' };
 
-  // updateLocal: updates local state only (no parent re-render)
-  const updateLocal = (patch) => {
-    setLocal(prev => ({ ...prev, ...patch }));
-  };
-  // flush: pushes current local state + patch to parent (triggers node update)
-  const flush = (patch = {}) => {
-    const next = { ...localRef.current, ...patch };
-    setLocal(next);
-    onChange(next);
+  // Flush all current local values to parent — called on blur or dropdown change
+  const flush = (overrides = {}) => {
+    onChange({
+      col, op,
+      threshold, then_val: thenVal, else_val: elseVal, new_col: newCol,
+      ...overrides,
+    });
   };
 
   const inputCls = 'w-full px-2 py-1.5 bg-slate-700/30 border border-slate-600 rounded text-white text-sm focus:border-cyan-500 focus:outline-none';
@@ -384,32 +400,35 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
   const pillActive = 'bg-cyan-600 text-white border-cyan-500';
   const pillInactive = 'bg-slate-700/30 text-slate-400 border-slate-600 hover:border-slate-500';
 
-  // Value input that can be column dropdown or text input
-  const ValueInput = ({ mode, setMode, val, onValChange, onBlur, label }) => (
+  // Reusable input that toggles between column dropdown and text input
+  const ValueInput = ({ mode, setMode, val, setVal, flushKey, label }) => (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <label className="text-xs text-slate-400 font-medium">{label}</label>
-        {availableColumns.length > 0 && (
-          <div className="flex rounded overflow-hidden border border-slate-600">
-            <button type="button"
-              onClick={() => { setMode('literal'); onValChange(''); if (onBlur) onBlur(); }}
-              className={`px-2 py-0.5 text-[10px] font-medium border-r border-slate-600 transition-colors ${mode === 'literal' ? pillActive : pillInactive}`}
-            >Value</button>
-            <button type="button"
-              onClick={() => { setMode('column'); onValChange(''); if (onBlur) onBlur(); }}
-              className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${mode === 'column' ? pillActive : pillInactive}`}
-            >Column</button>
-          </div>
-        )}
+        <div className="flex rounded overflow-hidden border border-slate-600">
+          <button type="button"
+            onClick={() => { setMode('literal'); setVal(''); flush({ [flushKey]: '' }); }}
+            className={`px-2 py-0.5 text-[10px] font-medium border-r border-slate-600 transition-colors ${mode === 'literal' ? pillActive : pillInactive}`}
+          >Value</button>
+          <button type="button"
+            onClick={() => { setMode('column'); setVal(''); flush({ [flushKey]: '' }); }}
+            className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${mode === 'column' ? pillActive : pillInactive}`}
+          >Column</button>
+        </div>
       </div>
-      {mode === 'column' && availableColumns.length > 0 ? (
-        <select value={val} onChange={e => { onValChange(e.target.value); if (onBlur) onBlur(); }} className={selectCls}>
-          <option value="">Select column</option>
-          {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+      {mode === 'column' ? (
+        availableColumns.length > 0 ? (
+          <select value={val} onChange={e => { setVal(e.target.value); flush({ [flushKey]: e.target.value }); }} className={selectCls}>
+            <option value="">Select column</option>
+            {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        ) : (
+          <input value={val} onChange={e => { setVal(e.target.value); flush({ [flushKey]: e.target.value }); }}
+            placeholder="Type column name (execute parent to see list)"
+            className={inputCls} />
+        )
       ) : (
-        <input value={val} onChange={e => onValChange(e.target.value)}
-          onBlur={onBlur}
+        <input value={val} onChange={e => { setVal(e.target.value); flush({ [flushKey]: e.target.value }); }}
           placeholder={label === 'THEN' ? 'e.g. High or 100' : label === 'Compare to' ? 'e.g. 90000' : 'e.g. Low or 0'}
           className={inputCls} />
       )}
@@ -418,7 +437,7 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
 
   return (
     <div className="space-y-3">
-      {/* ── IF condition ── */}
+      {/* IF condition */}
       <div className="p-3 bg-slate-800/50 border border-slate-700 rounded-lg space-y-2">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded">IF</span>
@@ -433,7 +452,7 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
                 {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             ) : (
-              <input value={col} onChange={e => updateLocal({ col: e.target.value })} onBlur={() => flush()} placeholder="column" className={inputCls} />
+              <input defaultValue={col} onBlur={e => flush({ col: e.target.value })} placeholder="column" className={inputCls} />
             )}
           </div>
           {/* Operator */}
@@ -443,41 +462,40 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
               {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-          {/* Threshold — value or column */}
+          {/* Threshold */}
           <div>
-            <ValueInput mode={thresholdMode} setMode={setThresholdMode} val={threshold}
-              onValChange={v => updateLocal({ threshold: v })} onBlur={() => flush()} label="Compare to" />
+            <ValueInput mode={thresholdMode} setMode={setThresholdMode}
+              val={threshold} setVal={setThreshold} flushKey="threshold" label="Compare to" />
           </div>
         </div>
       </div>
 
-      {/* ── THEN / ELSE ── */}
+      {/* THEN / ELSE */}
       <div className="grid grid-cols-2 gap-2">
         <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
           <div className="flex items-center gap-1 mb-2">
             <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">THEN</span>
           </div>
-          <ValueInput mode={thenMode} setMode={setThenMode} val={then_val}
-            onValChange={v => updateLocal({ then_val: v })} onBlur={() => flush()} label="THEN" />
+          <ValueInput mode={thenMode} setMode={setThenMode}
+            val={thenVal} setVal={setThenVal} flushKey="then_val" label="THEN" />
         </div>
         <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
           <div className="flex items-center gap-1 mb-2">
             <span className="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded">ELSE</span>
           </div>
-          <ValueInput mode={elseMode} setMode={setElseMode} val={else_val}
-            onValChange={v => updateLocal({ else_val: v })} onBlur={() => flush()} label="ELSE" />
+          <ValueInput mode={elseMode} setMode={setElseMode}
+            val={elseVal} setVal={setElseVal} flushKey="else_val" label="ELSE" />
         </div>
       </div>
 
-      {/* ── Output column name ── */}
+      {/* Output column name */}
       <div>
         <label className="block text-xs text-slate-400 mb-1 font-medium">Output Column Name</label>
-        <input value={new_col} onChange={e => updateLocal({ new_col: e.target.value })}
-          onBlur={() => flush()}
+        <input value={newCol} onChange={e => { setNewCol(e.target.value); flush({ new_col: e.target.value }); }}
           placeholder="e.g. performance_band" className={inputCls} />
       </div>
 
-      {/* ── Live preview ── */}
+      {/* Live preview */}
       {col && threshold !== '' && (
         <div className="p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-xs font-mono leading-relaxed">
           <span className="text-cyan-400">IF</span>{' '}
@@ -486,18 +504,18 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
           <span className="text-white">{threshold}</span>
           {thresholdMode === 'column' && <span className="text-slate-500"> (col)</span>}
           <br />
-          <span className="text-emerald-400">  → THEN</span>{' '}
-          <span className="text-white">{then_val || '...'}</span>
+          <span className="text-emerald-400">  &rarr; THEN</span>{' '}
+          <span className="text-white">{thenVal || '...'}</span>
           {thenMode === 'column' && <span className="text-slate-500"> (col)</span>}
           <br />
-          <span className="text-red-400">  → ELSE</span>{' '}
-          <span className="text-white">{else_val || '...'}</span>
+          <span className="text-red-400">  &rarr; ELSE</span>{' '}
+          <span className="text-white">{elseVal || '...'}</span>
           {elseMode === 'column' && <span className="text-slate-500"> (col)</span>}
-          {new_col && (
+          {newCol && (
             <>
               <br />
-              <span className="text-slate-500">  → into</span>{' '}
-              <span className="text-cyan-300">{new_col}</span>
+              <span className="text-slate-500">  &rarr; into</span>{' '}
+              <span className="text-cyan-300">{newCol}</span>
             </>
           )}
         </div>
