@@ -849,18 +849,26 @@ export default function WorkflowCanvas({
                     newData = { ...target.data, ...(updates.data || {}) };
                   }
 
-                  // Detect if config actually changed on an executed or errored node
-                  const wasExecuted = target.data.backendNodeId || target.data.status === 'error' || target.data.status === 'stale';
-                  const configChanged = wasExecuted &&
+                  // Detect if config actually changed on a successfully-executed node
+                  // Only trigger stale/reset for nodes that previously succeeded (have backendNodeId).
+                  // Error nodes just get the config update applied without status reset
+                  // (they'll re-execute with the new config when the user clicks run).
+                  const configChanged = target.data.backendNodeId &&
                     newData.config && target.data.config &&
                     JSON.stringify(newData.config) !== JSON.stringify(target.data.config);
 
                   if (!configChanged) {
-                    // No config change (e.g. label rename, saveDataframe toggle) — just apply
-                    return nds.map(n => n.id === nodeId
-                      ? { ...n, data: typeof updates === 'function' ? { ...n.data, ...updates(n.data) } : { ...n.data, ...(updates.data || {}) } }
-                      : n
-                    );
+                    // Apply update directly. For error nodes, clear the error so user sees fresh state.
+                    return nds.map(n => {
+                      if (n.id !== nodeId) return n;
+                      const applied = typeof updates === 'function' ? { ...n.data, ...updates(n.data) } : { ...n.data, ...(updates.data || {}) };
+                      // If node was in error and config changed, reset to idle
+                      if (n.data.status === 'error' && applied.config && n.data.config &&
+                          JSON.stringify(applied.config) !== JSON.stringify(n.data.config)) {
+                        return { ...n, data: { ...applied, status: 'idle', error: null } };
+                      }
+                      return { ...n, data: applied };
+                    });
                   }
 
                   // Config changed — reset this node to idle + invalidate downstream

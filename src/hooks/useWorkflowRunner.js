@@ -68,13 +68,29 @@ export const useWorkflowRunner = () => {
           return;
         }
 
-        if (!file) throw new Error(`No file found for "${node.data.label}" — please upload a file and try again`);
+        // If no file staged but static_file is configured, use it from the Data Files tab
+        if (!file && config?.static_file) {
+          // Find workflowId from the URL or context
+          const wfId = window.location.pathname.match(/workflow\/([^/]+)/)?.[1];
+          if (wfId) {
+            const staticResult = await api.useStaticFile(wfId, config.static_file);
+            if (staticResult?.node_id) {
+              result = staticResult;
+            } else {
+              throw new Error(`Static file '${config.static_file}' not found in Data Files`);
+            }
+          } else {
+            throw new Error(`Static file '${config.static_file}' configured but workflow not saved yet`);
+          }
+        } else if (!file) {
+          throw new Error(`No file found for "${node.data.label}" — please upload a file or configure a static file`);
+        } else {
+          result = nodeType === 'upload_csv'
+            ? await uploadCSV(file)
+            : await uploadExcel(file, node.data.config?.sheet_name || 'Sheet1');
 
-        result = nodeType === 'upload_csv'
-          ? await uploadCSV(file)
-          : await uploadExcel(file, node.data.config?.sheet_name || 'Sheet1');
-
-        if (fileRef) cleanupFile(fileRef);
+          if (fileRef) cleanupFile(fileRef);
+        }
       } else {
         const parentEdge = edges.find(e => e.target === nodeId);
         const parentFrontendId = parentEdge?.source;
@@ -114,7 +130,7 @@ export const useWorkflowRunner = () => {
           case 'math_horizontal':
             result = await api.horizontalMath(parentId, config.columns, config.new_col, config.op); break;
           case 'math_custom':
-            result = await api.customExpression(parentId, config.left_cols, config.op, config.right_val, config.new_suffix); break;
+            result = await api.customExpression(parentId, config.expression, config.new_col, config.columns); break;
           case 'math_multiply_bulk':
             result = await api.multiplyBulk(parentId, config.columns, config.factor, config.suffix); break;
           case 'vector_dot_product':

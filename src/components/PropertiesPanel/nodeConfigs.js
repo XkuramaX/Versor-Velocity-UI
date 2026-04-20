@@ -8,10 +8,17 @@ export const nodeConfigs = {
 
   // ── DATA INGESTION ────────────────────────────────────────────────────────
   // upload_csv: file handled by the upload section in PropertiesPanel, no extra fields
-  upload_csv: { fields: [] },
+  upload_csv: { fields: [
+    { key: 'static_file', label: 'Static File (from Data Files)', type: 'text',
+      placeholder: 'e.g. employees.csv',
+      helpText: 'If set, uses this file from the workflow Data Files tab instead of requiring upload. Leave empty for manual upload.' },
+  ] },
 
-  // upload_excel: sheet_name rendered directly in the upload section
-  upload_excel: { fields: [] },
+  upload_excel: { fields: [
+    { key: 'static_file', label: 'Static File (from Data Files)', type: 'text',
+      placeholder: 'e.g. report.xlsx',
+      helpText: 'If set, uses this file from the workflow Data Files tab instead of requiring upload.' },
+  ] },
 
   read_from_db: {
     fields: [
@@ -209,23 +216,17 @@ export const nodeConfigs = {
   math_custom: {
     fields: [
       {
-        key: 'left_cols', label: 'Left Columns', type: 'column_picker', required: true,
-        helpText: 'Each selected column will be operated on'
+        key: 'columns', label: 'Columns Used', type: 'column_picker',
+        helpText: 'Select columns referenced in your expression (for validation)'
       },
       {
-        key: 'op', label: 'Operator', type: 'select', required: true, default: '*',
-        options: [
-          { value: '+', label: 'Add (+)' }, { value: '-', label: 'Subtract (-)' },
-          { value: '*', label: 'Multiply (×)' }, { value: '/', label: 'Divide (÷)' }
-        ]
+        key: 'expression', label: 'Expression', type: 'textarea', required: true,
+        placeholder: '(salary + bonus) / 12', rows: 3,
+        helpText: 'Use column names directly. Supports: +, -, *, /, **, %, abs(), sqrt(), log(), round(). Division by zero returns null.'
       },
       {
-        key: 'right_val', label: 'Right Value', type: 'number', required: true,
-        placeholder: '1.1', step: 'any', helpText: 'Constant applied to each selected column'
-      },
-      {
-        key: 'new_suffix', label: 'New Column Suffix', type: 'text', required: true,
-        placeholder: '_adjusted', helpText: 'Appended to each original column name'
+        key: 'new_col', label: 'Result Column Name', type: 'text', required: true,
+        placeholder: 'monthly_comp', helpText: 'Name for the new computed column'
       }
     ]
   },

@@ -145,10 +145,10 @@ export const horizontalMath = async (parentId, columns, newCol, op = 'sum') => {
   return response.data;
 };
 
-export const customExpression = async (parentId, leftCols, op, rightVal, newSuffix) => {
-  const response = await api.post(`/nodes/math/custom?parent_id=${parentId}`, {
-    left_cols: leftCols, op, right_val: rightVal, new_suffix: newSuffix
-  });
+export const customExpression = async (parentId, expression, newCol, columns = null) => {
+  const body = { expression, new_col: newCol };
+  if (columns) body.columns = columns;
+  const response = await api.post(`/nodes/math/custom?parent_id=${parentId}`, body);
   return response.data;
 };
 
@@ -430,11 +430,18 @@ export const deleteWatchedFile = async (workflowId, filename) => {
   return response.data;
 };
 
+export const useStaticFile = async (workflowId, filename) => {
+  const response = await api.post(`/scheduler/workflows/${workflowId}/files/${encodeURIComponent(filename)}/use`);
+  return response.data;
+};
+
 export const triggerWorkflow = async (workflowId, triggeredBy = 'manual') => {
   const formData = new FormData();
   formData.append('triggered_by', triggeredBy);
+  formData.append('sync', 'true');
+  const token = localStorage.getItem('token');
   const response = await api.post(`/scheduler/workflows/${workflowId}/trigger`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: { 'Content-Type': 'multipart/form-data', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     timeout: 600000,
   });
   return response.data;

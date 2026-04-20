@@ -341,7 +341,12 @@ export function GroupByAggsField({ label, required, value = {}, onChange, availa
 
 // Conditional column builder — dynamic IF/THEN/ELSE with column-or-literal choice
 export function ConditionalBuilder({ value = {}, onChange, availableColumns = [] }) {
-  const { col = '', op = 'gt', threshold = '', then_val = '', else_val = '', new_col = '' } = value;
+  // Local state to avoid parent re-renders on every keystroke
+  const [local, setLocal] = React.useState(value);
+  const localRef = React.useRef(local);
+  localRef.current = local;
+  React.useEffect(() => { setLocal(v => ({ ...v, col: value.col, op: value.op })); }, [value.col, value.op]);
+  const { col = '', op = 'gt', threshold = '', then_val = '', else_val = '', new_col = '' } = local;
   const [thresholdMode, setThresholdMode] = React.useState(
     availableColumns.includes(threshold) ? 'column' : 'literal'
   );
@@ -363,8 +368,15 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
 
   const OP_SYMBOLS = { gt: '>', gte: '>=', lt: '<', lte: '<=', eq: '==', ne: '!=' };
 
-  const update = (patch) => {
-    onChange({ col, op, threshold, then_val, else_val, new_col, ...patch });
+  // updateLocal: updates local state only (no parent re-render)
+  const updateLocal = (patch) => {
+    setLocal(prev => ({ ...prev, ...patch }));
+  };
+  // flush: pushes current local state + patch to parent (triggers node update)
+  const flush = (patch = {}) => {
+    const next = { ...localRef.current, ...patch };
+    setLocal(next);
+    onChange(next);
   };
 
   const inputCls = 'w-full px-2 py-1.5 bg-slate-700/30 border border-slate-600 rounded text-white text-sm focus:border-cyan-500 focus:outline-none';
@@ -373,31 +385,32 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
   const pillInactive = 'bg-slate-700/30 text-slate-400 border-slate-600 hover:border-slate-500';
 
   // Value input that can be column dropdown or text input
-  const ValueInput = ({ mode, setMode, val, onValChange, label }) => (
+  const ValueInput = ({ mode, setMode, val, onValChange, onBlur, label }) => (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <label className="text-xs text-slate-400 font-medium">{label}</label>
         {availableColumns.length > 0 && (
           <div className="flex rounded overflow-hidden border border-slate-600">
             <button type="button"
-              onClick={() => { setMode('literal'); onValChange(''); }}
+              onClick={() => { setMode('literal'); onValChange(''); if (onBlur) onBlur(); }}
               className={`px-2 py-0.5 text-[10px] font-medium border-r border-slate-600 transition-colors ${mode === 'literal' ? pillActive : pillInactive}`}
             >Value</button>
             <button type="button"
-              onClick={() => { setMode('column'); onValChange(''); }}
+              onClick={() => { setMode('column'); onValChange(''); if (onBlur) onBlur(); }}
               className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${mode === 'column' ? pillActive : pillInactive}`}
             >Column</button>
           </div>
         )}
       </div>
       {mode === 'column' && availableColumns.length > 0 ? (
-        <select value={val} onChange={e => onValChange(e.target.value)} className={selectCls}>
+        <select value={val} onChange={e => { onValChange(e.target.value); if (onBlur) onBlur(); }} className={selectCls}>
           <option value="">Select column</option>
           {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
       ) : (
         <input value={val} onChange={e => onValChange(e.target.value)}
-          placeholder={label === 'THEN' ? 'e.g. High or 100' : 'e.g. Low or 0'}
+          onBlur={onBlur}
+          placeholder={label === 'THEN' ? 'e.g. High or 100' : label === 'Compare to' ? 'e.g. 90000' : 'e.g. Low or 0'}
           className={inputCls} />
       )}
     </div>
@@ -415,25 +428,25 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
           <div>
             <label className="block text-[10px] text-slate-500 mb-1">Column</label>
             {availableColumns.length > 0 ? (
-              <select value={col} onChange={e => update({ col: e.target.value })} className={selectCls}>
+              <select value={col} onChange={e => flush({ col: e.target.value })} className={selectCls}>
                 <option value="">Select column</option>
                 {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             ) : (
-              <input value={col} onChange={e => update({ col: e.target.value })} placeholder="column" className={inputCls} />
+              <input value={col} onChange={e => updateLocal({ col: e.target.value })} onBlur={() => flush()} placeholder="column" className={inputCls} />
             )}
           </div>
           {/* Operator */}
           <div>
             <label className="block text-[10px] text-slate-500 mb-1">Op</label>
-            <select value={op} onChange={e => update({ op: e.target.value })} className={selectCls + ' w-16 text-center'}>
+            <select value={op} onChange={e => flush({ op: e.target.value })} className={selectCls + ' w-16 text-center'}>
               {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           {/* Threshold — value or column */}
           <div>
             <ValueInput mode={thresholdMode} setMode={setThresholdMode} val={threshold}
-              onValChange={v => update({ threshold: v })} label="Compare to" />
+              onValChange={v => updateLocal({ threshold: v })} onBlur={() => flush()} label="Compare to" />
           </div>
         </div>
       </div>
@@ -445,21 +458,22 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
             <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">THEN</span>
           </div>
           <ValueInput mode={thenMode} setMode={setThenMode} val={then_val}
-            onValChange={v => update({ then_val: v })} label="THEN" />
+            onValChange={v => updateLocal({ then_val: v })} onBlur={() => flush()} label="THEN" />
         </div>
         <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
           <div className="flex items-center gap-1 mb-2">
             <span className="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded">ELSE</span>
           </div>
           <ValueInput mode={elseMode} setMode={setElseMode} val={else_val}
-            onValChange={v => update({ else_val: v })} label="ELSE" />
+            onValChange={v => updateLocal({ else_val: v })} onBlur={() => flush()} label="ELSE" />
         </div>
       </div>
 
       {/* ── Output column name ── */}
       <div>
         <label className="block text-xs text-slate-400 mb-1 font-medium">Output Column Name</label>
-        <input value={new_col} onChange={e => update({ new_col: e.target.value })}
+        <input value={new_col} onChange={e => updateLocal({ new_col: e.target.value })}
+          onBlur={() => flush()}
           placeholder="e.g. performance_band" className={inputCls} />
       </div>
 
