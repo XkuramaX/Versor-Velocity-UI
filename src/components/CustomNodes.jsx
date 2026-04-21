@@ -69,6 +69,18 @@ const NODE_META = {
   transition_matrix:     { inputs: 1, category: 'transform' },
   period_average_matrix: { inputs: 1, category: 'transform' },
   chain_probability:     { inputs: 1, category: 'transform' },
+  logistic_regression_fit: { inputs: 1, category: 'ml' },
+  random_forest_classifier: { inputs: 1, category: 'ml' },
+  xgboost_classifier:    { inputs: 1, category: 'ml' },
+  svm_classifier:        { inputs: 1, category: 'ml' },
+  linear_prediction:     { inputs: 1, category: 'ml' },
+  stationarity_test:     { inputs: 1, category: 'ml' },
+  sarima_model:          { inputs: 1, category: 'ml' },
+  var_model:             { inputs: 1, category: 'ml' },
+  exponential_smoothing: { inputs: 1, category: 'ml' },
+  kernel_smoothing:      { inputs: 1, category: 'ml' },
+  markov_chain_simulation: { inputs: 1, category: 'ml' },
+  monte_carlo_simulation:  { inputs: 1, category: 'ml' },
 };
 
 const CATEGORY_ICONS = {

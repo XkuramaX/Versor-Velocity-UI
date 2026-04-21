@@ -596,4 +596,85 @@ export const chainProbability = async (parentId, bucketOrder = null) => {
   return response.data;
 };
 
+// --- CLASSIFIERS ---
+export const logisticRegressionFit = async (parentId, target, features, testSize = 0.2) => {
+  const response = await api.post(`/nodes/ml/logistic_regression_fit?parent_id=${parentId}`, { target, features, test_size: testSize });
+  return response.data;
+};
+
+export const randomForestClassifier = async (parentId, target, features, nEstimators = 100, maxDepth = null, testSize = 0.2) => {
+  const body = { target, features, n_estimators: nEstimators, test_size: testSize };
+  if (maxDepth) body.max_depth = maxDepth;
+  const response = await api.post(`/nodes/ml/random_forest?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const xgboostClassifier = async (parentId, target, features, nEstimators = 100, maxDepth = 6, learningRate = 0.1, testSize = 0.2) => {
+  const response = await api.post(`/nodes/ml/xgboost?parent_id=${parentId}`, {
+    target, features, n_estimators: nEstimators, max_depth: maxDepth, learning_rate: learningRate, test_size: testSize
+  });
+  return response.data;
+};
+
+export const svmClassifier = async (parentId, target, features, kernel = 'rbf', C = 1.0, testSize = 0.2) => {
+  const response = await api.post(`/nodes/ml/svm?parent_id=${parentId}`, { target, features, kernel, C, test_size: testSize });
+  return response.data;
+};
+
+export const linearPrediction = async (parentId, features, weights, intercept = 0.0) => {
+  const response = await api.post(`/nodes/ml/linear_prediction?parent_id=${parentId}`, { features, weights, intercept });
+  return response.data;
+};
+
+// --- TIME SERIES ---
+export const stationarityTest = async (parentId, column) => {
+  const response = await api.post(`/nodes/ts/stationarity?parent_id=${parentId}`, { column });
+  return response.data;
+};
+
+export const sarimaModel = async (parentId, column, order = null, seasonalOrder = null, forecastSteps = 12, auto = false, dateCol = null) => {
+  const body = { column, forecast_steps: forecastSteps, auto };
+  if (order) body.order = order;
+  if (seasonalOrder) body.seasonal_order = seasonalOrder;
+  if (dateCol) body.date_col = dateCol;
+  const response = await api.post(`/nodes/ts/sarima?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const varModel = async (parentId, columns, maxlags = null, forecastSteps = 12) => {
+  const body = { columns, forecast_steps: forecastSteps };
+  if (maxlags) body.maxlags = maxlags;
+  const response = await api.post(`/nodes/ts/var?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const exponentialSmoothing = async (parentId, column, method = 'double', seasonalPeriods = 12, forecastSteps = 12) => {
+  const response = await api.post(`/nodes/ts/exponential_smoothing?parent_id=${parentId}`, {
+    column, method, seasonal_periods: seasonalPeriods, forecast_steps: forecastSteps
+  });
+  return response.data;
+};
+
+export const kernelSmoothing = async (parentId, column, kernel = 'gaussian', bandwidth = 1.0, nPoints = 200) => {
+  const response = await api.post(`/nodes/ts/kernel_smoothing?parent_id=${parentId}`, {
+    column, kernel, bandwidth, n_points: nPoints
+  });
+  return response.data;
+};
+
+// --- SIMULATION ---
+export const markovChain = async (parentId, stateCol, nSteps = 100, nSimulations = 10, initialState = null) => {
+  const body = { state_col: stateCol, n_steps: nSteps, n_simulations: nSimulations };
+  if (initialState) body.initial_state = initialState;
+  const response = await api.post(`/nodes/sim/markov_chain?parent_id=${parentId}`, body);
+  return response.data;
+};
+
+export const monteCarlo = async (parentId, column, nSimulations = 1000, nSteps = 252, method = 'random_walk') => {
+  const response = await api.post(`/nodes/sim/monte_carlo?parent_id=${parentId}`, {
+    column, n_simulations: nSimulations, n_steps: nSteps, method
+  });
+  return response.data;
+};
+
 export default api;

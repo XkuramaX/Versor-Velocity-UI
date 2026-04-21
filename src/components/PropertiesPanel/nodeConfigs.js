@@ -649,4 +649,125 @@ export const nodeConfigs = {
       { key: 'bucket_order', label: 'Bucket Order (comma-separated)', type: 'text', default: '0,1-30,31-60,61-90,90+' },
     ]
   },
+
+  // Classifiers
+  logistic_regression_fit: {
+    fields: [
+      { key: 'target', label: 'Target Column', type: 'column_dropdown', required: true, helpText: 'The column to predict (categorical)' },
+      { key: 'features', label: 'Feature Columns', type: 'column_picker', required: true, helpText: 'Numeric columns used for prediction' },
+      { key: 'test_size', label: 'Test Split', type: 'number', default: 0.2, step: 0.05, helpText: 'Fraction of data for testing (0.0-1.0)' },
+    ]
+  },
+  random_forest_classifier: {
+    fields: [
+      { key: 'target', label: 'Target Column', type: 'column_dropdown', required: true },
+      { key: 'features', label: 'Feature Columns', type: 'column_picker', required: true },
+      { key: 'n_estimators', label: 'Number of Trees', type: 'number', default: 100, helpText: 'More trees = better accuracy but slower' },
+      { key: 'max_depth', label: 'Max Depth', type: 'number', default: 0, helpText: '0 = unlimited. Limits tree depth to prevent overfitting' },
+      { key: 'test_size', label: 'Test Split', type: 'number', default: 0.2, step: 0.05 },
+    ]
+  },
+  xgboost_classifier: {
+    fields: [
+      { key: 'target', label: 'Target Column', type: 'column_dropdown', required: true },
+      { key: 'features', label: 'Feature Columns', type: 'column_picker', required: true },
+      { key: 'n_estimators', label: 'Number of Rounds', type: 'number', default: 100 },
+      { key: 'max_depth', label: 'Max Depth', type: 'number', default: 6 },
+      { key: 'learning_rate', label: 'Learning Rate', type: 'number', default: 0.1, step: 0.01 },
+      { key: 'test_size', label: 'Test Split', type: 'number', default: 0.2, step: 0.05 },
+    ]
+  },
+  svm_classifier: {
+    fields: [
+      { key: 'target', label: 'Target Column', type: 'column_dropdown', required: true },
+      { key: 'features', label: 'Feature Columns', type: 'column_picker', required: true },
+      { key: 'kernel', label: 'Kernel', type: 'select', default: 'rbf', options: [
+        { value: 'rbf', label: 'RBF (Gaussian)' },
+        { value: 'linear', label: 'Linear' },
+        { value: 'poly', label: 'Polynomial' },
+        { value: 'sigmoid', label: 'Sigmoid' },
+      ]},
+      { key: 'C', label: 'Regularization (C)', type: 'number', default: 1.0, step: 0.1, helpText: 'Higher = less regularization' },
+      { key: 'test_size', label: 'Test Split', type: 'number', default: 0.2, step: 0.05 },
+    ]
+  },
+  linear_prediction: {
+    fields: [
+      { key: 'features', label: 'Feature Columns', type: 'column_picker', required: true },
+      { key: 'weights', label: 'Weights (comma-separated)', type: 'text', required: true, placeholder: '0.5, -0.3, 0.8', helpText: 'One weight per feature, in order' },
+      { key: 'intercept', label: 'Intercept', type: 'number', default: 0.0, step: 0.01 },
+    ]
+  },
+
+  // Time Series
+  stationarity_test: {
+    fields: [
+      { key: 'column', label: 'Column to Test', type: 'column_dropdown', required: true, helpText: 'Numeric time series column' },
+    ]
+  },
+  sarima_model: {
+    fields: [
+      { key: 'column', label: 'Value Column', type: 'column_dropdown', required: true },
+      { key: 'auto', label: 'Auto-ARIMA', type: 'checkbox', default: false, helpText: 'Automatically find best (p,d,q) order' },
+      { key: 'order', label: 'Order (p,d,q)', type: 'text', default: '1,0,0', helpText: 'AR, differencing, MA orders. Ignored if Auto is checked.' },
+      { key: 'seasonal_order', label: 'Seasonal (P,D,Q,s)', type: 'text', default: '0,0,0,0', helpText: 'Set s>0 for SARIMA (e.g. 1,1,1,12 for monthly)' },
+      { key: 'forecast_steps', label: 'Forecast Steps', type: 'number', default: 12 },
+      { key: 'date_col', label: 'Date Column (optional)', type: 'column_dropdown' },
+    ]
+  },
+  var_model: {
+    fields: [
+      { key: 'columns', label: 'Value Columns', type: 'column_picker', required: true, helpText: 'Multiple numeric columns for multivariate analysis' },
+      { key: 'maxlags', label: 'Max Lags', type: 'number', default: 0, helpText: '0 = auto-select by AIC' },
+      { key: 'forecast_steps', label: 'Forecast Steps', type: 'number', default: 12 },
+    ]
+  },
+  exponential_smoothing: {
+    fields: [
+      { key: 'column', label: 'Value Column', type: 'column_dropdown', required: true },
+      { key: 'method', label: 'Method', type: 'select', default: 'double', options: [
+        { value: 'simple', label: 'Simple (level only)' },
+        { value: 'double', label: 'Double / Holt (level + trend)' },
+        { value: 'triple', label: 'Triple / Holt-Winters (level + trend + seasonal)' },
+      ]},
+      { key: 'seasonal_periods', label: 'Seasonal Periods', type: 'number', default: 12, helpText: 'Only for Triple/Holt-Winters (e.g. 12 for monthly, 4 for quarterly)' },
+      { key: 'forecast_steps', label: 'Forecast Steps', type: 'number', default: 12 },
+    ]
+  },
+  kernel_smoothing: {
+    fields: [
+      { key: 'column', label: 'Column', type: 'column_dropdown', required: true },
+      { key: 'kernel', label: 'Kernel', type: 'select', default: 'gaussian', options: [
+        { value: 'gaussian', label: 'Gaussian' },
+        { value: 'tophat', label: 'Top Hat' },
+        { value: 'epanechnikov', label: 'Epanechnikov' },
+        { value: 'exponential', label: 'Exponential' },
+        { value: 'linear', label: 'Linear' },
+        { value: 'cosine', label: 'Cosine' },
+      ]},
+      { key: 'bandwidth', label: 'Bandwidth', type: 'number', default: 1.0, step: 0.1, helpText: 'Controls smoothness. Smaller = more detail.' },
+      { key: 'n_points', label: 'Output Points', type: 'number', default: 200 },
+    ]
+  },
+
+  // Simulation
+  markov_chain_simulation: {
+    fields: [
+      { key: 'state_col', label: 'State Column', type: 'column_dropdown', required: true, helpText: 'Categorical column representing states' },
+      { key: 'n_steps', label: 'Steps per Simulation', type: 'number', default: 100 },
+      { key: 'n_simulations', label: 'Number of Simulations', type: 'number', default: 10 },
+      { key: 'initial_state', label: 'Initial State (optional)', type: 'text', helpText: 'Leave empty to use first observed state' },
+    ]
+  },
+  monte_carlo_simulation: {
+    fields: [
+      { key: 'column', label: 'Value Column', type: 'column_dropdown', required: true, helpText: 'Numeric column (e.g. stock price, portfolio value)' },
+      { key: 'method', label: 'Method', type: 'select', default: 'random_walk', options: [
+        { value: 'random_walk', label: 'Random Walk (GBM)' },
+        { value: 'bootstrap', label: 'Bootstrap (resample returns)' },
+      ]},
+      { key: 'n_simulations', label: 'Number of Simulations', type: 'number', default: 1000 },
+      { key: 'n_steps', label: 'Steps per Simulation', type: 'number', default: 252, helpText: '252 = trading days in a year' },
+    ]
+  },
 };

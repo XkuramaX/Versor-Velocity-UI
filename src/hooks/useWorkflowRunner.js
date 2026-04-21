@@ -220,6 +220,35 @@ export const useWorkflowRunner = () => {
             const bo3 = typeof config.bucket_order === 'string' ? config.bucket_order.split(',').map(s => s.trim()) : config.bucket_order;
             result = await api.chainProbability(parentId, bo3); break;
           }
+          case 'logistic_regression_fit':
+            result = await api.logisticRegressionFit(parentId, config.target, config.features, config.test_size || 0.2); break;
+          case 'random_forest_classifier':
+            result = await api.randomForestClassifier(parentId, config.target, config.features, config.n_estimators || 100, config.max_depth, config.test_size || 0.2); break;
+          case 'xgboost_classifier':
+            result = await api.xgboostClassifier(parentId, config.target, config.features, config.n_estimators || 100, config.max_depth || 6, config.learning_rate || 0.1, config.test_size || 0.2); break;
+          case 'svm_classifier':
+            result = await api.svmClassifier(parentId, config.target, config.features, config.kernel || 'rbf', config.C || 1.0, config.test_size || 0.2); break;
+          case 'linear_prediction': {
+            const w = typeof config.weights === 'string' ? config.weights.split(',').map(s => parseFloat(s.trim())) : config.weights;
+            result = await api.linearPrediction(parentId, config.features, w, config.intercept || 0.0); break;
+          }
+          case 'stationarity_test':
+            result = await api.stationarityTest(parentId, config.column); break;
+          case 'sarima_model': {
+            const ord = typeof config.order === 'string' ? config.order.split(',').map(s => parseInt(s.trim())) : config.order;
+            const sord = typeof config.seasonal_order === 'string' ? config.seasonal_order.split(',').map(s => parseInt(s.trim())) : config.seasonal_order;
+            result = await api.sarimaModel(parentId, config.column, ord, sord, config.forecast_steps || 12, config.auto || false, config.date_col); break;
+          }
+          case 'var_model':
+            result = await api.varModel(parentId, config.columns, config.maxlags, config.forecast_steps || 12); break;
+          case 'exponential_smoothing':
+            result = await api.exponentialSmoothing(parentId, config.column, config.method || 'double', config.seasonal_periods || 12, config.forecast_steps || 12); break;
+          case 'kernel_smoothing':
+            result = await api.kernelSmoothing(parentId, config.column, config.kernel || 'gaussian', config.bandwidth || 1.0, config.n_points || 200); break;
+          case 'markov_chain_simulation':
+            result = await api.markovChain(parentId, config.state_col, config.n_steps || 100, config.n_simulations || 10, config.initial_state); break;
+          case 'monte_carlo_simulation':
+            result = await api.monteCarlo(parentId, config.column, config.n_simulations || 1000, config.n_steps || 252, config.method || 'random_walk'); break;
           case 'join': {
             const joinEdges = edges.filter(e => e.target === nodeId);
             const leftId = executedNodes.current[joinEdges[0]?.source];

@@ -342,7 +342,46 @@ export function GroupByAggsField({ label, required, value = {}, onChange, availa
 // Conditional column builder — dynamic IF/THEN/ELSE with column-or-literal choice
 
 // Conditional column builder — dynamic IF/THEN/ELSE with column-or-literal choice
-export function ConditionalBuilder({ value = {}, onChange, availableColumns = [] }) {
+// Standalone sub-component for conditional value inputs (must be outside ConditionalBuilder to avoid remount)
+function CondValueInput({ mode, setMode, val, setVal, flushKey, label, commit, availableColumns, inputCls, selectCls, pillActive, pillInactive }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <label className="text-xs text-slate-400 font-medium">{label}</label>
+        <div className="flex rounded overflow-hidden border border-slate-600">
+          <button type="button"
+            onClick={() => { setMode('literal'); setVal(''); commit({ [flushKey]: '' }); }}
+            className={`px-2 py-0.5 text-[10px] font-medium border-r border-slate-600 transition-colors ${mode === 'literal' ? pillActive : pillInactive}`}
+          >Value</button>
+          <button type="button"
+            onClick={() => { setMode('column'); setVal(''); commit({ [flushKey]: '' }); }}
+            className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${mode === 'column' ? pillActive : pillInactive}`}
+          >Column</button>
+        </div>
+      </div>
+      {mode === 'column' ? (
+        availableColumns.length > 0 ? (
+          <select value={val} onChange={e => { setVal(e.target.value); commit({ [flushKey]: e.target.value }); }} className={selectCls}>
+            <option value="">Select column</option>
+            {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        ) : (
+          <input value={val} onChange={e => setVal(e.target.value)}
+            onBlur={e => commit({ [flushKey]: e.target.value })}
+            placeholder="Type column name (execute parent to see list)"
+            className={inputCls} />
+        )
+      ) : (
+        <input value={val} onChange={e => setVal(e.target.value)}
+          onBlur={e => commit({ [flushKey]: e.target.value })}
+          placeholder={label === 'THEN' ? 'e.g. High or 100' : label === 'Compare to' ? 'e.g. 90000' : 'e.g. Low or 0'}
+          className={inputCls} />
+      )}
+    </div>
+  );
+}
+
+export function ConditionalBuilder({ value = {}, onChange, onCommit, availableColumns = [] }) {
   // Individual local state for each text field to prevent focus loss.
   // Dropdowns (col, op) read directly from value prop — no typing involved.
   const [threshold, setThreshold] = React.useState(value.threshold || '');
@@ -386,7 +425,7 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
   ];
   const OP_SYMBOLS = { gt: '>', gte: '>=', lt: '<', lte: '<=', eq: '==', ne: '!=' };
 
-  // Flush all current local values to parent — called on blur or dropdown change
+  // Local update only (no node persist) — used during typing
   const flush = (overrides = {}) => {
     onChange({
       col, op,
@@ -395,45 +434,20 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
     });
   };
 
+  // Persist to node — used on blur and dropdown changes
+  const commit = (overrides = {}) => {
+    const val = {
+      col, op,
+      threshold, then_val: thenVal, else_val: elseVal, new_col: newCol,
+      ...overrides,
+    };
+    (onCommit || onChange)(val);
+  };
+
   const inputCls = 'w-full px-2 py-1.5 bg-slate-700/30 border border-slate-600 rounded text-white text-sm focus:border-cyan-500 focus:outline-none';
   const selectCls = inputCls;
   const pillActive = 'bg-cyan-600 text-white border-cyan-500';
   const pillInactive = 'bg-slate-700/30 text-slate-400 border-slate-600 hover:border-slate-500';
-
-  // Reusable input that toggles between column dropdown and text input
-  const ValueInput = ({ mode, setMode, val, setVal, flushKey, label }) => (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <label className="text-xs text-slate-400 font-medium">{label}</label>
-        <div className="flex rounded overflow-hidden border border-slate-600">
-          <button type="button"
-            onClick={() => { setMode('literal'); setVal(''); flush({ [flushKey]: '' }); }}
-            className={`px-2 py-0.5 text-[10px] font-medium border-r border-slate-600 transition-colors ${mode === 'literal' ? pillActive : pillInactive}`}
-          >Value</button>
-          <button type="button"
-            onClick={() => { setMode('column'); setVal(''); flush({ [flushKey]: '' }); }}
-            className={`px-2 py-0.5 text-[10px] font-medium transition-colors ${mode === 'column' ? pillActive : pillInactive}`}
-          >Column</button>
-        </div>
-      </div>
-      {mode === 'column' ? (
-        availableColumns.length > 0 ? (
-          <select value={val} onChange={e => { setVal(e.target.value); flush({ [flushKey]: e.target.value }); }} className={selectCls}>
-            <option value="">Select column</option>
-            {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        ) : (
-          <input value={val} onChange={e => { setVal(e.target.value); flush({ [flushKey]: e.target.value }); }}
-            placeholder="Type column name (execute parent to see list)"
-            className={inputCls} />
-        )
-      ) : (
-        <input value={val} onChange={e => { setVal(e.target.value); flush({ [flushKey]: e.target.value }); }}
-          placeholder={label === 'THEN' ? 'e.g. High or 100' : label === 'Compare to' ? 'e.g. 90000' : 'e.g. Low or 0'}
-          className={inputCls} />
-      )}
-    </div>
-  );
 
   return (
     <div className="space-y-3">
@@ -447,25 +461,27 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
           <div>
             <label className="block text-[10px] text-slate-500 mb-1">Column</label>
             {availableColumns.length > 0 ? (
-              <select value={col} onChange={e => flush({ col: e.target.value })} className={selectCls}>
+              <select value={col} onChange={e => commit({ col: e.target.value })} className={selectCls}>
                 <option value="">Select column</option>
                 {availableColumns.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             ) : (
-              <input defaultValue={col} onBlur={e => flush({ col: e.target.value })} placeholder="column" className={inputCls} />
+              <input defaultValue={col} onBlur={e => commit({ col: e.target.value })} placeholder="column" className={inputCls} />
             )}
           </div>
           {/* Operator */}
           <div>
             <label className="block text-[10px] text-slate-500 mb-1">Op</label>
-            <select value={op} onChange={e => flush({ op: e.target.value })} className={selectCls + ' w-16 text-center'}>
+            <select value={op} onChange={e => commit({ op: e.target.value })} className={selectCls + ' w-16 text-center'}>
               {OPS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
           {/* Threshold */}
           <div>
-            <ValueInput mode={thresholdMode} setMode={setThresholdMode}
-              val={threshold} setVal={setThreshold} flushKey="threshold" label="Compare to" />
+            <CondValueInput mode={thresholdMode} setMode={setThresholdMode}
+              val={threshold} setVal={setThreshold} flushKey="threshold" label="Compare to"
+              commit={commit} availableColumns={availableColumns}
+              inputCls={inputCls} selectCls={selectCls} pillActive={pillActive} pillInactive={pillInactive} />
           </div>
         </div>
       </div>
@@ -476,22 +492,27 @@ export function ConditionalBuilder({ value = {}, onChange, availableColumns = []
           <div className="flex items-center gap-1 mb-2">
             <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">THEN</span>
           </div>
-          <ValueInput mode={thenMode} setMode={setThenMode}
-            val={thenVal} setVal={setThenVal} flushKey="then_val" label="THEN" />
+          <CondValueInput mode={thenMode} setMode={setThenMode}
+            val={thenVal} setVal={setThenVal} flushKey="then_val" label="THEN"
+            commit={commit} availableColumns={availableColumns}
+            inputCls={inputCls} selectCls={selectCls} pillActive={pillActive} pillInactive={pillInactive} />
         </div>
         <div className="p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
           <div className="flex items-center gap-1 mb-2">
             <span className="text-xs font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded">ELSE</span>
           </div>
-          <ValueInput mode={elseMode} setMode={setElseMode}
-            val={elseVal} setVal={setElseVal} flushKey="else_val" label="ELSE" />
+          <CondValueInput mode={elseMode} setMode={setElseMode}
+            val={elseVal} setVal={setElseVal} flushKey="else_val" label="ELSE"
+            commit={commit} availableColumns={availableColumns}
+            inputCls={inputCls} selectCls={selectCls} pillActive={pillActive} pillInactive={pillInactive} />
         </div>
       </div>
 
       {/* Output column name */}
       <div>
         <label className="block text-xs text-slate-400 mb-1 font-medium">Output Column Name</label>
-        <input value={newCol} onChange={e => { setNewCol(e.target.value); flush({ new_col: e.target.value }); }}
+        <input value={newCol} onChange={e => setNewCol(e.target.value)}
+          onBlur={e => commit({ new_col: e.target.value })}
           placeholder="e.g. performance_band" className={inputCls} />
       </div>
 
