@@ -65,6 +65,30 @@ export default function WorkflowCanvas({
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { edgesRef.current = edges; }, [edges]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [allowedNodeGroups, setAllowedNodeGroups] = useState(null);
+  const [plan, setPlan] = useState(null);
+
+  // Fetch user's effective plan (limits + feature flags) — refresh every 5 min
+  useEffect(() => {
+    const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+    const fetchPlan = () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        fetch(`${API}/me/plan`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (d) {
+              setPlan(d);
+              setAllowedNodeGroups(d.allowed_node_groups);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+    fetchPlan();
+    const interval = setInterval(fetchPlan, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
   // Derive live node data from the nodes array — never stale
   const selectedNode = selectedNodeId ? nodes.find(n => n.id === selectedNodeId) ?? null : null;
   const [showDataPreview, setShowDataPreview] = useState(false);
@@ -79,7 +103,7 @@ export default function WorkflowCanvas({
   const [leftPanel, setLeftPanel] = useState(aiMode ? 'ai' : 'nodes'); // 'nodes' | 'ai'
   const [aiInputSchemas, setAiInputSchemas] = useState([]);
 
-  const { runWorkflow, runSingleNode, isRunning } = useWorkflowRunner();
+  const { runWorkflow, runSingleNode, isRunning } = useWorkflowRunner(allowedNodeGroups);
 
   // Use refs to pass live nodes/edges to CustomNode without recreating nodeTypes
   // Recreating nodeTypes causes ReactFlow to remount all nodes (flicker + lost selection)
@@ -109,7 +133,6 @@ export default function WorkflowCanvas({
   }, []);
 
   const handleDownloadNode = useCallback(async (nodeId) => {
-    // We use a reference to nodes or find it within the setNodes to avoid dependency
     let node;
     setNodes(nds => {
         node = nds.find(n => n.id === nodeId);
@@ -121,6 +144,9 @@ export default function WorkflowCanvas({
       return;
     }
 
+    // Set downloading state on the node
+    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, downloading: true } } : n));
+
     try {
       const blob = await downloadNodeData(node.data.backendNodeId, 'csv');
       const url = URL.createObjectURL(blob);
@@ -131,6 +157,8 @@ export default function WorkflowCanvas({
       URL.revokeObjectURL(url);
     } catch (error) {
       alert('Download failed: ' + error.message);
+    } finally {
+      setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, downloading: false } } : n));
     }
   }, []);
 
@@ -156,7 +184,6 @@ export default function WorkflowCanvas({
         nodeId,
         node.data.backendNodeId,
         filename,
-        currentUser.username,
         metadata.rows || 0,
         metadata.columns || 0
       );
@@ -486,7 +513,7 @@ export default function WorkflowCanvas({
       if (savedNodes.length > 0 && workflowId) {
         const versions = await workflowApi.getVersions(workflowId).catch(() => []);
         const versionId = versions?.[0]?.id || null;
-        await workflowApi.createRun(workflowId, versionId, currentUser.username, status, savedNodes).catch(() => {});
+        await workflowApi.createRun(workflowId, versionId, status, savedNodes).catch(() => {});
       }
     } catch (e) {
       console.error('Failed to record run:', e);
@@ -564,7 +591,7 @@ export default function WorkflowCanvas({
 
       try {
         const currentUser = authService.getUser();
-        const workflows = await workflowApi.getUserWorkflows(currentUser.id);
+        const workflows = await workflowApi.getUserWorkflows();
         const workflow = workflows.find(w => w.id === workflowId);
   
         if (workflow?.workflow_data) {
@@ -639,8 +666,8 @@ export default function WorkflowCanvas({
         <div className="flex-1 flex overflow-hidden">
           {/* Left Sidebar - Node Library or AI Chat */}
           <div className="w-80 h-full overflow-hidden sidebar border-r flex flex-col">
-            {/* Tab toggle (only shown when aiMode is available) */}
-            {aiMode && (
+            {/* Tab toggle (only shown when aiMode is available AND feature enabled) */}
+            {aiMode && plan?.feature_ai_generator !== false && (
               <div className="flex border-b border-slate-700/50 flex-shrink-0">
                 <button
                   onClick={() => setLeftPanel('ai')}
@@ -676,7 +703,7 @@ export default function WorkflowCanvas({
                 />
               </div>
               <div className={`h-full ${leftPanel !== 'nodes' ? 'hidden' : ''}`}>
-                <NodeLibrary disabled={!permissions.canEdit} />
+                <NodeLibrary disabled={!permissions.canEdit} allowedNodeGroups={allowedNodeGroups} />
               </div>
             </div>
           </div>
@@ -802,7 +829,7 @@ export default function WorkflowCanvas({
                   </button>
                 )}
 
-                {permissions.canEdit && workflowId && (
+                {permissions.canEdit && workflowId && plan?.feature_scheduler !== false && (
                   <button
                     onClick={() => setShowScheduler(true)}
                     className="flex items-center space-x-2 btn-secondary"
@@ -833,6 +860,7 @@ export default function WorkflowCanvas({
               nodes={nodes}
               edges={edges}
               permissions={permissions}
+              plan={plan}
               onUploadClick={handleUploadFile}
               onClearData={handleClearData}
               onUpdateNode={(nodeId, updates) => {
@@ -907,6 +935,7 @@ export default function WorkflowCanvas({
       {showDataPreview && selectedNode && (
         <DataPreviewModal
           node={selectedNode}
+          plan={plan}
           onClose={() => { setShowDataPreview(false); }}
         />
       )}

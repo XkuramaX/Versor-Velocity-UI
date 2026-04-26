@@ -95,7 +95,7 @@ const CATEGORY_ICONS = {
 export default function CustomNode({ data, selected, id, allNodes, allEdges }) {
   const {
     label, nodeType, status = 'idle', backendNodeId, fileRef, fileName,
-    onInspect, onDelete, onRun, onUpload, saveDataframe,
+    onInspect, onDelete, onRun, onUpload, saveDataframe, downloading,
   } = data;
 
   const meta = NODE_META[nodeType] || { inputs: 1, category: 'transform' };
@@ -348,11 +348,15 @@ export default function CustomNode({ data, selected, id, allNodes, allEdges }) {
             {/* Download button */}
             {backendNodeId && (
               <button
-                onClick={() => data.onDownload?.(id)}
-                className="flex items-center justify-center w-8 h-8 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg transition-all hover:scale-110"
-                title="Download CSV"
+                onClick={() => !downloading && data.onDownload?.(id)}
+                disabled={downloading}
+                className={`flex items-center justify-center w-8 h-8 rounded-lg transition-all ${downloading ? 'bg-purple-500/10 cursor-not-allowed' : 'bg-purple-500/20 hover:bg-purple-500/30 hover:scale-110'} text-purple-400`}
+                title={downloading ? 'Downloading...' : 'Download CSV'}
               >
-                <Download className="w-4 h-4" />
+                {downloading
+                  ? <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  : <Download className="w-4 h-4" />
+                }
               </button>
             )}
 

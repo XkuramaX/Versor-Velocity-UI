@@ -11,7 +11,11 @@ import { Upload, Trash2, FileText, Database, CheckCircle, AlertCircle, Clock } f
 import { getNodeColumns, getColumnValues } from '../../services/api';
 import axios from 'axios';
 
-export function PropertiesPanel({ selectedNode, onUpdateNode, onUploadClick, onClearData, nodes, edges }) {
+export function PropertiesPanel({ selectedNode, onUpdateNode, onUploadClick, onClearData, nodes, edges, plan }) {
+  // Count how many nodes in this workflow have saveDataframe enabled
+  const savedNodeCount = nodes ? nodes.filter(n => n.data?.saveDataframe).length : 0;
+  const maxSavedNodes = plan?.max_saved_nodes ?? 999999;
+  const canToggleSave = maxSavedNodes > 0 && (selectedNode?.data?.saveDataframe || savedNodeCount < maxSavedNodes);
   const [config, setConfig] = useState({});
   const [availableColumns, setAvailableColumns] = useState([]);
   const [columnValues, setColumnValues] = useState([]);
@@ -433,18 +437,24 @@ export function PropertiesPanel({ selectedNode, onUpdateNode, onUploadClick, onC
         )}
 
         {/* ── Save dataframe toggle (all nodes) ── */}
-        {nodeType && (
+        {nodeType && maxSavedNodes > 0 && (
           <>
             <div className="border-t border-slate-700/50" />
             <label className="flex items-center justify-between cursor-pointer">
               <div>
                 <div className="text-sm text-slate-300 font-medium">Save output on run</div>
-                <div className="text-xs text-slate-500">Viewable in version history</div>
+                <div className="text-xs text-slate-500">
+                  {maxSavedNodes < 999999 ? `${savedNodeCount}/${maxSavedNodes} nodes saved in this workflow` : 'Viewable in version history'}
+                </div>
               </div>
               <div
-                onClick={() => onUpdateNode?.(selectedNode.id, (d) => ({ ...d, saveDataframe: !d.saveDataframe }))}
-                className={`relative w-10 h-5 rounded-full transition-colors cursor-pointer ${
-                  selectedNode.data.saveDataframe ? 'bg-teal-500' : 'bg-slate-600'
+                onClick={() => {
+                  if (!canToggleSave && !selectedNode.data.saveDataframe) return;
+                  onUpdateNode?.(selectedNode.id, (d) => ({ ...d, saveDataframe: !d.saveDataframe }));
+                }}
+                className={`relative w-10 h-5 rounded-full transition-colors ${
+                  !canToggleSave && !selectedNode.data.saveDataframe ? 'bg-slate-700 cursor-not-allowed opacity-50' :
+                  selectedNode.data.saveDataframe ? 'bg-teal-500 cursor-pointer' : 'bg-slate-600 cursor-pointer'
                 }`}
               >
                 <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${

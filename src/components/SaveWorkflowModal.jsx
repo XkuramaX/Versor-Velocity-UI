@@ -16,7 +16,7 @@ export default function SaveWorkflowModal({ workflowId, nodes, edges, onClose })
 
   const loadWorkflowData = async () => {
     try {
-      const workflows = await workflowApi.getUserWorkflows(currentUser.id);
+      const workflows = await workflowApi.getUserWorkflows();
       const wf = workflows.find(w => w.id === workflowId);
       
       if (wf) {
@@ -44,7 +44,7 @@ export default function SaveWorkflowModal({ workflowId, nodes, edges, onClose })
       
       // Check if workflow exists, if not create it
       if (!workflow) {
-        await workflowApi.createWorkflow(workflowId, workflowName, currentUser.id, currentUser.username);
+        await workflowApi.createWorkflow(workflowId, workflowName);
       }
       
       // Check if workflow has changed
@@ -60,7 +60,7 @@ export default function SaveWorkflowModal({ workflowId, nodes, edges, onClose })
       
       await workflowApi.updateWorkflow(workflowId, { name: workflowName, workflow_data: workflowData });
       
-      await workflowApi.saveVersion(workflowId, workflowData, currentUser.username, '');
+      await workflowApi.saveVersion(workflowId, workflowData, '');
       
       alert('Workflow saved successfully');
       onClose();
@@ -85,7 +85,7 @@ export default function SaveWorkflowModal({ workflowId, nodes, edges, onClose })
     
     try {
       // Update workflow creator
-      await workflowApi.transferOwnership(workflowId, userId, username, currentUser.id);
+      await workflowApi.transferOwnership(workflowId, userId, username);
       alert('Ownership transferred successfully');
       onClose();
       window.location.reload();

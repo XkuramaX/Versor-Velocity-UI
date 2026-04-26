@@ -4,7 +4,30 @@ import { uploadCSV, uploadExcel } from '../services/api';
 import { getFile, cleanupFile } from '../utils/fileStorage';
 import { workflowApi } from '../services/workflow';
 
-export const useWorkflowRunner = () => {
+// Map node types to quota group keys
+const NODE_TYPE_TO_GROUP = {
+  upload_csv: 'io', upload_excel: 'io', read_from_db: 'io',
+  safe_filter: 'transform', filter: 'transform', select: 'transform', drop: 'transform',
+  sort: 'transform', rename: 'transform', reorder: 'transform',
+  string_case: 'string', string_slice: 'string', string_mid: 'string',
+  string_concat: 'string', string_prefix_suffix: 'string', string_clean: 'string',
+  math_horizontal: 'math', math_custom: 'math', math_multiply_bulk: 'math',
+  vector_dot_product: 'vector', vector_linear_multiply: 'vector', vector_cross_product: 'vector',
+  drop_na: 'clean', drop_nulls: 'clean', drop_duplicates: 'clean', fill_missing: 'clean',
+  cast: 'dtype', extract_date_parts: 'datetime',
+  join: 'combine', union: 'combine',
+  outliers: 'advanced', groupby: 'advanced', stats: 'advanced', pivot: 'advanced',
+  moving_average: 'advanced', conditional: 'advanced',
+  transpose: 'matrix',
+  linear_regression: 'ml', logistic_prediction: 'ml', correlation: 'ml',
+  ols_regression: 'stats', t_test: 'stats', f_test: 'stats', chi_square_test: 'stats',
+  dw_test: 'stats', anova_test: 'stats',
+  chart: 'viz',
+  add_literal_column: 'util', range_bucket: 'util', date_offset: 'util',
+  crosstab: 'util', cumulative_product: 'util',
+};
+
+export const useWorkflowRunner = (allowedNodeGroups = null) => {
   const [isRunning, setIsRunning] = useState(false);
   const executedNodes = useRef({});
 
@@ -53,6 +76,14 @@ export const useWorkflowRunner = () => {
     try {
       let result;
       const { nodeType, config } = node.data;
+
+      // Pre-flight: check if this node's group is allowed
+      if (allowedNodeGroups && !allowedNodeGroups.includes('all')) {
+        const group = NODE_TYPE_TO_GROUP[nodeType];
+        if (group && !allowedNodeGroups.includes(group)) {
+          throw { response: { data: { detail: `Node "${nodeType}" requires the "${group}" group which is not included in your plan. Contact your admin to upgrade.`, node_group_blocked: true } } };
+        }
+      }
 
       if (['upload_csv', 'upload_excel'].includes(nodeType)) {
         const fileRef = node.data.fileRef;

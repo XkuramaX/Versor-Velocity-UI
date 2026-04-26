@@ -5,6 +5,7 @@ import { workflowApi } from '../services/workflow';
 export default function FileHistoryTab({ workflowId }) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState({});
 
   useEffect(() => {
     loadFileHistory();
@@ -22,6 +23,8 @@ export default function FileHistoryTab({ workflowId }) {
   };
 
   const handleDownload = async (fileId, filename) => {
+    if (downloading[fileId]) return;
+    setDownloading(d => ({ ...d, [fileId]: true }));
     try {
       const blob = await workflowApi.downloadFile(fileId);
       const url = URL.createObjectURL(blob);
@@ -32,6 +35,8 @@ export default function FileHistoryTab({ workflowId }) {
       URL.revokeObjectURL(url);
     } catch (error) {
       alert('Download failed: ' + error.message);
+    } finally {
+      setDownloading(d => ({ ...d, [fileId]: false }));
     }
   };
 
@@ -109,10 +114,14 @@ export default function FileHistoryTab({ workflowId }) {
 
                   <button
                     onClick={() => handleDownload(file.id, file.filename)}
-                    className="ml-4 flex items-center space-x-2 bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400 px-4 py-2 rounded-lg transition-colors"
+                    disabled={downloading[file.id]}
+                    className={`ml-4 flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${downloading[file.id] ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-400'}`}
                   >
-                    <Download className="w-4 h-4" />
-                    <span>Download</span>
+                    {downloading[file.id] ? (
+                      <><div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" /><span>Downloading...</span></>
+                    ) : (
+                      <><Download className="w-4 h-4" /><span>Download</span></>
+                    )}
                   </button>
                 </div>
               </div>

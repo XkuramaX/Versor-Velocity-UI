@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Play, Trash2, FolderOpen, LogOut, User, Share2, Eye, Mail, Sparkles, Ticket } from 'lucide-react';
+import { Plus, Play, Trash2, FolderOpen, Share2, Eye, Mail, Sparkles } from 'lucide-react';
 import { useWorkflow } from '../contexts/WorkflowContext';
 import { workflowApi } from '../services/workflow.js';
+import NavBar from '../components/NavBar';
 import { authService } from '../services/auth';
-import VelocityLogo from '../components/VelocityLogo';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -18,12 +18,20 @@ export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showVerificationBanner, setShowVerificationBanner] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
+  const [plan, setPlan] = useState(null);
 
   useEffect(() => {
     const user = authService.getUser();
     setCurrentUser(user);
     if (user && !user.is_verified) {
       setShowVerificationBanner(true);
+    }
+    // Fetch plan for feature flags
+    const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch(`${API}/me/plan`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null).then(setPlan).catch(() => {});
     }
   }, []);
 
@@ -36,7 +44,7 @@ export default function Dashboard() {
   const loadWorkflows = async () => {
     try {
       setLoading(true);
-      const data = await workflowApi.getUserWorkflows(currentUser.id);
+      const data = await workflowApi.getUserWorkflows();
       setWorkflows(data);
     } catch (error) {
       console.error('Failed to load workflows:', error);
@@ -46,15 +54,11 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogout = () => {
-    authService.logout();
-    window.location.reload();
-  };
 
   const handleCreateWorkflow = async () => {
     const newId = Date.now().toString();
     try {
-      await workflowApi.createWorkflow(newId, 'Untitled Workflow', currentUser.id, currentUser.username);
+      await workflowApi.createWorkflow(newId, 'Untitled Workflow');
       navigate(`/editor/${newId}`);
     } catch (error) {
       console.error('Failed to create workflow:', error);
@@ -73,7 +77,7 @@ export default function Dashboard() {
     if (!confirm('Delete this workflow?')) return;
     
     try {
-      await workflowApi.deleteWorkflow(workflowId, currentUser.id);
+      await workflowApi.deleteWorkflow(workflowId);
       loadWorkflows();
     } catch (error) {
       alert('Failed to delete workflow');
@@ -142,40 +146,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <header className="bg-slate-800/50 backdrop-blur-xl border-b border-slate-700/50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <VelocityLogo size={32} />
-              <h1 className="text-2xl font-bold text-white">Versor-Velocity</h1>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-slate-300">
-                <User className="w-4 h-4" />
-                <span>{currentUser?.username || 'User'}</span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </button>
-              {(currentUser?.is_superuser || currentUser?.username === 'admin') && (
-                <button
-                  onClick={() => navigate('/admin/tickets')}
-                  className="flex items-center space-x-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors text-sm"
-                >
-                  <Ticket className="w-4 h-4" />
-                  <span>Feature Tickets</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <NavBar />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
@@ -225,13 +196,15 @@ export default function Dashboard() {
               <Plus className="w-5 h-5" />
               <span>New Workflow</span>
             </button>
-            <button
-              onClick={() => navigate('/ai-generate')}
-              className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all duration-200 transform hover:scale-105"
-            >
-              <Sparkles className="w-5 h-5" />
-              <span>AI Generate</span>
-            </button>
+            {plan?.feature_ai_generator !== false && (
+              <button
+                onClick={() => navigate('/ai-generate')}
+                className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all duration-200 transform hover:scale-105"
+              >
+                <Sparkles className="w-5 h-5" />
+                <span>AI Generate</span>
+              </button>
+            )}
           </div>
         </div>
 

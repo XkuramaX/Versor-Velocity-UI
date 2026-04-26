@@ -91,7 +91,26 @@ const nodeCategories = {
   ]
 };
 
-export default function NodeLibraryFixed({ disabled = false }) {
+// Map category names to node group keys used by the quota system
+const CATEGORY_TO_GROUP = {
+  'Data Ingestion': 'io',
+  'Data Transformation': 'transform',
+  'String Operations': 'string',
+  'Math Operations': 'math',
+  'Vector Operations': 'vector',
+  'Data Cleaning': 'clean',
+  'Data Types': 'dtype',
+  'Date/Time': 'datetime',
+  'Joins & Combine': 'combine',
+  'Advanced Analytics': 'advanced',
+  'Matrix Operations': 'matrix',
+  'Machine Learning': 'ml',
+  'Utility': 'util',
+  'Statistical Tests': 'stats',
+  'Visualization': 'viz',
+};
+
+export default function NodeLibraryFixed({ disabled = false, allowedNodeGroups = null }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState(
     Object.keys(nodeCategories).reduce((acc, category) => ({ ...acc, [category]: true }), {})
@@ -111,6 +130,11 @@ export default function NodeLibraryFixed({ disabled = false }) {
   };
 
   const filteredCategories = Object.entries(nodeCategories).reduce((acc, [category, nodes]) => {
+    // Filter by allowed node groups
+    const group = CATEGORY_TO_GROUP[category];
+    if (allowedNodeGroups && !allowedNodeGroups.includes('all') && group && !allowedNodeGroups.includes(group)) {
+      return acc;
+    }
     const filteredNodes = nodes.filter(node => 
       node.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
       node.type.toLowerCase().includes(searchTerm.toLowerCase())

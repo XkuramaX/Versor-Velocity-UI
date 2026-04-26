@@ -9,6 +9,31 @@ const api = axios.create({
   timeout: 120000,
 });
 
+// Attach JWT token to every request automatically
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Handle 401 responses globally — redirect to login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.dispatchEvent(new Event('auth:logout'));
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // --- 1. DATA INGESTION ---
 export const uploadCSV = async (file, onProgress) => {
   const formData = new FormData();
@@ -539,17 +564,6 @@ export const refineWorkflow = async (prompt, currentWorkflow, inputSchemas = [])
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 1800000,
   });
-  return response.data;
-};
-
-export const getFeatureTickets = async (status = null) => {
-  const url = status ? `/ai/tickets?status=${status}` : '/ai/tickets';
-  const response = await api.get(url);
-  return response.data;
-};
-
-export const voteFeatureTicket = async (ticketId) => {
-  const response = await api.post(`/ai/tickets/${ticketId}/vote`);
   return response.data;
 };
 

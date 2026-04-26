@@ -3,6 +3,8 @@ import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
 import { authService } from '../services/auth';
 import VelocityLogo from '../components/VelocityLogo';
 
+import TwoFactorChallenge from './TwoFactorChallenge';
+
 export default function LoginScreen({ onLogin }) {
   const [isSignup, setIsSignup] = useState(false);
   const [credentials, setCredentials] = useState({ username: '', password: '' });
@@ -15,10 +17,14 @@ export default function LoginScreen({ onLogin }) {
   });
   const [error, setError] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetUsername, setResetUsername] = useState('');
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
   const [showResendVerification, setShowResendVerification] = useState(false);
+  // 2FA state
+  const [show2FA, setShow2FA] = useState(false);
+  const [tempToken, setTempToken] = useState('');
 
   const validatePassword = (password) => {
     const errors = [];
@@ -34,12 +40,11 @@ export default function LoginScreen({ onLogin }) {
     setError('');
     try {
       const data = await authService.login(credentials.username, credentials.password);
-      // if (!data.user.is_verified) {
-      //   setUnverifiedEmail(data.user.email);
-      //   setShowResendVerification(true);
-      //   setError('Email not verified. Please check your inbox or resend verification.');
-      //   return;
-      // }
+      if (data.requires_2fa) {
+        setTempToken(data.temp_token);
+        setShow2FA(true);
+        return;
+      }
       onLogin();
     } catch (err) {
       setError(err.message);
@@ -83,12 +88,22 @@ export default function LoginScreen({ onLogin }) {
     e.preventDefault();
     setError('');
     try {
-      await authService.requestPasswordReset(resetEmail);
-      setResetMessage('Password reset link sent to your email');
+      await authService.requestPasswordReset(resetUsername, resetEmail);
+      setResetMessage('If the account exists, a reset link has been sent to your email');
     } catch (err) {
       setError(err.message);
     }
   };
+
+  if (show2FA) {
+    return (
+      <TwoFactorChallenge
+        tempToken={tempToken}
+        onSuccess={onLogin}
+        onBack={() => { setShow2FA(false); setTempToken(''); }}
+      />
+    );
+  }
 
   if (showForgotPassword) {
     return (
@@ -99,7 +114,7 @@ export default function LoginScreen({ onLogin }) {
               <VelocityLogo size={64} />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2">Reset Password</h1>
-            <p className="text-slate-400">Enter your email to receive reset link</p>
+            <p className="text-slate-400">Enter your username and email to receive a reset link</p>
           </div>
 
           {error && (
@@ -128,6 +143,17 @@ export default function LoginScreen({ onLogin }) {
           )}
 
           <form onSubmit={handleForgotPassword} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Username</label>
+              <input
+                type="text"
+                value={resetUsername}
+                onChange={(e) => setResetUsername(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                placeholder="Your username"
+                required
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Email</label>
               <input

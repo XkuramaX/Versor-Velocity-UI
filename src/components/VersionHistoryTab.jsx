@@ -85,6 +85,7 @@ function VersionCanvasView({ workflowId, version, onBack }) {
   const [selectedRun, setSelectedRun] = useState(null);
   const [clickedNode, setClickedNode] = useState(null);
   const [versionData, setVersionData] = useState(null);
+  const [downloadingNode, setDownloadingNode] = useState(null);
 
   // savedNodeIds for the selected run
   const savedNodes = selectedRun ? JSON.parse(selectedRun.saved_nodes || '[]') : [];
@@ -137,6 +138,8 @@ function VersionCanvasView({ workflowId, version, onBack }) {
   };
 
   const handleDownload = async (savedNode) => {
+    if (downloadingNode) return;
+    setDownloadingNode(savedNode.backend_node_id);
     try {
       const blob = await downloadNodeData(savedNode.backend_node_id, 'csv');
       const url = URL.createObjectURL(blob);
@@ -147,6 +150,8 @@ function VersionCanvasView({ workflowId, version, onBack }) {
       URL.revokeObjectURL(url);
     } catch (e) {
       alert('Download failed: ' + e.message);
+    } finally {
+      setDownloadingNode(null);
     }
   };
 
@@ -227,10 +232,14 @@ function VersionCanvasView({ workflowId, version, onBack }) {
             </div>
             <button
               onClick={() => handleDownload(clickedNode)}
-              className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white py-2 px-4 rounded-lg"
+              disabled={!!downloadingNode}
+              className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg ${downloadingNode ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
             >
-              <Download className="w-4 h-4" />
-              Download CSV
+              {downloadingNode ? (
+                <><div className="w-4 h-4 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />Downloading...</>
+              ) : (
+                <><Download className="w-4 h-4" />Download CSV</>
+              )}
             </button>
           </div>
         )}

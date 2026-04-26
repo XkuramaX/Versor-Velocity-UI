@@ -22,7 +22,7 @@ export default function WorkflowEditor() {
     const loadPermissions = async () => {
       try {
         const currentUser = authService.getUser();
-        const access = await workflowApi.checkAccess(workflowId, currentUser.id);
+        const access = await workflowApi.checkAccess(workflowId);
         const role = access.access;
 
         // Redirect non-editors to the run page

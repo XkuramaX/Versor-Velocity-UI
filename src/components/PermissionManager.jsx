@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Lock, Unlock, Eye, Play, Plus, Trash2, Crown } from 'lucide-react';
+import { X, Users, Lock, Unlock, Eye, Play, Plus, Trash2, Crown, ArrowRightLeft } from 'lucide-react';
 import { workflowApi } from '../services/workflow.js';
 import { authService } from '../services/auth.js';
 
@@ -18,7 +18,7 @@ export default function PermissionManager({ workflowId, currentPermissions, onCl
 
   const loadData = async () => {
     try {
-      const workflows = await workflowApi.getUserWorkflows(currentUser.id);
+      const workflows = await workflowApi.getUserWorkflows();
       const wf = workflows.find(w => w.id === workflowId);
       setWorkflow(wf);
       
@@ -85,6 +85,18 @@ export default function PermissionManager({ workflowId, currentPermissions, onCl
       loadData();
     } catch (error) {
       alert('Failed to update role: ' + error.message);
+    }
+  };
+
+  const handleTransferOwnership = async (userId, username) => {
+    if (!confirm(`Transfer ownership to ${username}? You will become an editor.`)) return;
+    try {
+      await workflowApi.transferOwnership(workflowId, userId, username);
+      alert('Ownership transferred successfully');
+      onClose();
+      window.location.reload();
+    } catch (error) {
+      alert('Failed to transfer ownership: ' + error.message);
     }
   };
 
@@ -181,6 +193,15 @@ export default function PermissionManager({ workflowId, currentPermissions, onCl
                               <option value="editor">Editor</option>
                               <option value="runner">Runner</option>
                             </select>
+                            {isCreator && (
+                              <button
+                                onClick={() => handleTransferOwnership(permission.user_id, permission.username)}
+                                className="p-1 text-purple-400 hover:text-purple-300 transition-colors"
+                                title="Transfer ownership"
+                              >
+                                <Crown className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleRemoveUser(permission.user_id)}
                               className="p-1 text-red-400 hover:text-red-300 transition-colors"

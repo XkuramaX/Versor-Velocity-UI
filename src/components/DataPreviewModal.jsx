@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, RefreshCw, Eye, BarChart3, Maximize2, Minimize2 } from 'lucide-react';
 import { inspectNode, downloadNodeData, getChartImage } from '../services/api';
 
-export default function DataPreviewModal({ node, onClose }) {
+export default function DataPreviewModal({ node, onClose, plan }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,7 +59,11 @@ export default function DataPreviewModal({ node, onClose }) {
     }
   };
 
+  const [downloading, setDownloading] = useState(null);
+
   const handleDownload = async (format = 'csv') => {
+    if (downloading) return;
+    setDownloading(format);
     try {
       const blob = await downloadNodeData(node.data.backendNodeId, format);
       const url = URL.createObjectURL(blob);
@@ -71,6 +75,8 @@ export default function DataPreviewModal({ node, onClose }) {
       URL.revokeObjectURL(url);
     } catch (err) {
       alert('Failed to download data: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -107,22 +113,22 @@ export default function DataPreviewModal({ node, onClose }) {
               <span>Refresh</span>
             </button>
 
+            {plan?.feature_export !== false && (
             <div className="flex items-center space-x-1">
-              <button
-                onClick={() => handleDownload('csv')}
-                className="flex items-center space-x-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                <span>CSV</span>
-              </button>
-              <button
-                onClick={() => handleDownload('excel')}
-                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                <span>Excel</span>
-              </button>
+              {['csv', 'excel'].map(fmt => (
+                <button key={fmt}
+                  onClick={() => handleDownload(fmt)}
+                  disabled={!!downloading}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${downloading === fmt ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : fmt === 'csv' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                >
+                  {downloading === fmt
+                    ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /><span>Downloading...</span></>
+                    : <><Download className="w-4 h-4" /><span>{fmt.toUpperCase()}</span></>
+                  }
+                </button>
+              ))}
             </div>
+            )}
 
             <button
               onClick={onClose}

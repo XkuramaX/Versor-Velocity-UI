@@ -66,6 +66,7 @@ export default function WorkflowRunnerPage() {
     let node;
     setNodes(nds => { node = nds.find(n => n.id === nodeId); return nds; });
     if (!node?.data?.backendNodeId) { alert('Node must be executed first'); return; }
+    setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, downloading: true } } : n));
     try {
       const blob = await downloadNodeData(node.data.backendNodeId, 'csv');
       const url = URL.createObjectURL(blob);
@@ -76,15 +77,17 @@ export default function WorkflowRunnerPage() {
       URL.revokeObjectURL(url);
     } catch (error) {
       alert('Download failed: ' + error.message);
+    } finally {
+      setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, downloading: false } } : n));
     }
   }, []);
 
   const handleUploadFile = useCallback((nodeId) => {
-    setNodes((currentNodes) => {
-      const node = currentNodes.find(n => n.id === nodeId);
-      if (node) { setUploadingNode(node); setShowFileUpload(true); }
-      return currentNodes;
-    });
+    const node = nodesRef.current.find(n => n.id === nodeId);
+    if (node) {
+      setUploadingNode(node);
+      setShowFileUpload(true);
+    }
   }, []);
 
   const handleRunNode = useCallback(async (nodeId) => {
@@ -144,7 +147,7 @@ export default function WorkflowRunnerPage() {
           columns: n.data.metadata?.column_count,
           saved_by: currentUser.username
         }));
-      await workflowApi.createRun(workflowId, activeVersionId, currentUser.username, status, savedNodes);
+      await workflowApi.createRun(workflowId, activeVersionId, status, savedNodes);
     } catch (e) {
       console.error('Failed to record run:', e);
     }
@@ -156,8 +159,8 @@ export default function WorkflowRunnerPage() {
       try {
         const currentUser = authService.getUser();
         const [access, workflows, versions] = await Promise.all([
-          workflowApi.checkAccess(workflowId, currentUser.id),
-          workflowApi.getUserWorkflows(currentUser.id),
+          workflowApi.checkAccess(workflowId),
+          workflowApi.getUserWorkflows(),
           workflowApi.getVersions(workflowId)
         ]);
         setPermissions({ role: access.access, canEdit: false, canRun: access.can_run });

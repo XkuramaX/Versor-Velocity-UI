@@ -73,6 +73,22 @@ function ChatMessage({ msg }) {
             ))}
           </div>
         )}
+        {msg.blocked_premium && msg.blocked_premium.length > 0 && (
+          <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <p className="text-xs text-amber-400 font-semibold mb-1">⚡ Premium nodes required</p>
+            <p className="text-xs text-slate-400 mb-2">This workflow needs nodes that are not included in your current plan:</p>
+            <div className="space-y-1">
+              {msg.blocked_premium.map((b, i) => (
+                <div key={i} className="text-xs flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded">{b.group}</span>
+                  <span className="text-white">{b.name}</span>
+                  <span className="text-slate-500">({b.node_id})</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-amber-300 mt-2">Contact your admin to add these node groups to your plan.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -146,6 +162,7 @@ export default function AIChatPanel({ onWorkflowGenerated, getWorkflowState, inp
           text: result.reasoning || 'Analysis complete.',
           steps: result.feasible_steps,
           gaps: result.gaps,
+          blocked_premium: result.blocked_premium,
         }]);
 
         if (result.workflow) {

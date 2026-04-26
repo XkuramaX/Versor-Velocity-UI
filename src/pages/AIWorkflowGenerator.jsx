@@ -17,7 +17,7 @@ export default function AIWorkflowGenerator() {
     try {
       const currentUser = authService.getUser();
       const newId = Date.now().toString();
-      await workflowApi.createWorkflow(newId, workflowName, currentUser.id, currentUser.username);
+      await workflowApi.createWorkflow(newId, workflowName);
 
       // WorkflowCanvas stores its state internally — we need to get it via the DOM
       // The save modal inside WorkflowCanvas handles persistence, so navigate to editor
